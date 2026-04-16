@@ -28,3 +28,34 @@
     flex-direction: column;
     gap: 8px;
 }
+
+.answer-key {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.answer-key-item {
+    border: 1px solid #273449;
+    border-radius: 10px;
+    padding: 10px;
+    background: #0f172a;
+}
+
+.answer-key-item.correct {
+    border-color: #22c55e;
+}
+
+.answer-key-item.wrong {
+    border-color: #f59e0b;
+}
+
+.answer-key-item.unanswered {
+    border-color: #475569;
+}
+
+.answer-key-question {
+    font-weight: 700;
+    margin-bottom: 6px;
+}

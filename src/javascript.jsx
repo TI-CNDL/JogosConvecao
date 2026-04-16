@@ -300,6 +300,11 @@ export function App() {
     ? sortRanking(ranking.filter((row) => row.game === currentGameLabel))
     : [];
 
+  const mainMenuRanking = games
+    .map((game) => gameLabels[game.id])
+    .map((label) => sortRanking(ranking.filter((row) => row.game === label))[0])
+    .filter(Boolean);
+
   useEffect(() => {
     try {
       localStorage.setItem(storageKeys.player, JSON.stringify({ name, phone }));
@@ -336,12 +341,17 @@ export function App() {
     }
   }, [selectedGame, screen]);
 
-  const goMenu = () => {
-    if (selectedGame) {
-      setScreen("identify");
-    } else {
-      setScreen("menu");
-    }
+  const goCadastro = () => {
+    setScreen("identify");
+  };
+
+  const goMainMenu = () => {
+    const confirmed = window.confirm(
+      "Deseja realmente voltar ao menu principal? O jogo atual será encerrado.",
+    );
+    if (!confirmed) return;
+    setScreen("menu");
+    setSelectedGame(null);
   };
 
   const handleSelectGame = (gameId) => {
@@ -426,7 +436,11 @@ export function App() {
 
   return (
     <div className="app-shell">
-      <HeaderBar screen={screen} onBack={goMenu} />
+      <HeaderBar
+        screen={screen}
+        onBackToCadastro={goCadastro}
+        onBackToMenu={goMainMenu}
+      />
 
       {screen === "menu" && (
         <>
@@ -444,7 +458,7 @@ export function App() {
             onQuizLimitChange={handleQuizLimitChange}
             onSelect={handleSelectGame}
           />
-          <RankingTable ranking={ranking} />
+          <RankingTable ranking={mainMenuRanking} />
         </>
       )}
 

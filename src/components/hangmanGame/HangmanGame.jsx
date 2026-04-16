@@ -163,7 +163,7 @@ export default function HangmanGame({
           </button>
         ))}
       </div>
-      {(won || lost) && (
+      {finished && (
         <div className="result-box">
           <p>
             {timedOut

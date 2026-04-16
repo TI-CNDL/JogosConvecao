@@ -11,7 +11,7 @@ export default function RankingTable({ ranking = [] }) {
       <div className="panel-head">
         <div>
           <p className="eyebrow">Ranking</p>
-          <h2>Top jogadas (últimas 10)</h2>
+          <h2>Top 1 de cada jogo</h2>
         </div>
       </div>
       {ranking.length === 0 ? (

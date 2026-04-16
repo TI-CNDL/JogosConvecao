@@ -56,6 +56,7 @@ export default function QuizGame({
   const [reported, setReported] = useState(false);
   const [livesLeft, setLivesLeft] = useState(livesLimit);
   const [outOfLives, setOutOfLives] = useState(false);
+  const [answersByStep, setAnswersByStep] = useState({});
 
   useEffect(() => {
     // Reset completo ao mudar props
@@ -67,6 +68,7 @@ export default function QuizGame({
     setReported(false);
     setLivesLeft(livesLimit);
     setOutOfLives(false);
+    setAnswersByStep({});
     setShuffleKey((k) => k + 1);
   }, [
     sanitizedQuestions,
@@ -119,6 +121,7 @@ export default function QuizGame({
 
   const choose = (option) => {
     if (finished || noQuestions || !current) return;
+    setAnswersByStep((prev) => ({ ...prev, [step]: option }));
     const correct = option === current.answer;
     const nextScore = score + (correct ? 1 : 0);
     setScore(nextScore);
@@ -151,6 +154,7 @@ export default function QuizGame({
     setReported(false);
     setLivesLeft(livesLimit);
     setOutOfLives(false);
+    setAnswersByStep({});
     setShuffleKey((k) => k + 1);
   };
 
@@ -180,6 +184,37 @@ export default function QuizGame({
             {score}/{randomizedQuestions.length} corretas
           </h3>
           <p>Tempo: {timeLimitSeconds - timeLeft}s</p>
+
+          {randomizedQuestions.length > 0 && (
+            <div className="answer-key">
+              <p className="eyebrow">Gabarito</p>
+              {randomizedQuestions.map((question, index) => {
+                const chosen = answersByStep[index];
+                const statusClass = !chosen
+                  ? "unanswered"
+                  : chosen === question.answer
+                    ? "correct"
+                    : "wrong";
+
+                return (
+                  <div
+                    key={`${question.prompt}-${index}`}
+                    className={`answer-key-item ${statusClass}`}
+                  >
+                    <p className="answer-key-question">{question.prompt}</p>
+                    <p>
+                      Sua resposta:{" "}
+                      <strong>{chosen ?? "Nao respondida"}</strong>
+                    </p>
+                    <p>
+                      Correta: <strong>{question.answer}</strong>
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {ranking.length > 0 && (
             <div className="mini-ranking">
               <p className="eyebrow">Ranking deste jogo</p>
