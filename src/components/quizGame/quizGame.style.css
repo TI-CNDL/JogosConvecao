@@ -1,0 +1,30 @@
+.quiz-box {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.quiz-question {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.quiz-options {
+    display: grid;
+    gap: 10px;
+}
+
+.option {
+    background: #1f2937;
+    color: #e2e8f0;
+}
+
+.result-box {
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}

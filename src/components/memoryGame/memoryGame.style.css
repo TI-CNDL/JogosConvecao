@@ -1,0 +1,24 @@
+.memory-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+}
+
+.card {
+    background: #0b1220;
+    border: 1px solid #1f2937;
+    color: #e2e8f0;
+    font-size: 20px;
+}
+
+.card-flipped {
+    background: #0ea5e9;
+    color: #0b172a;
+}
+
+.card-matched {
+    background: #22c55e;
+    color: #0b172a;
+}

@@ -1,0 +1,38 @@
+.hangman-word {
+    font-size: 28px;
+    letter-spacing: 8px;
+    text-align: center;
+    padding: 8px;
+    border-radius: 12px;
+    background: #0b1220;
+    border: 1px solid #1f2937;
+    box-sizing: border-box;
+}
+
+.keyboard {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    box-sizing: border-box;
+}
+
+.key {
+    background: #1f2937;
+    color: #e2e8f0;
+    gap: 6px;
+}
+
+.result-box {
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 12px;
+    border-radius: 8px;
+    padding: 10px 8px;
+    font-weight: 700;
+    font-size: 15px;
+    min-height: 40px;
+    min-width: 40px;
+}
+
+

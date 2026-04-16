@@ -1,0 +1,26 @@
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(17, 24, 39, 0.7);
+    border: 1px solid #1f2937;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.topbar h1 {
+    margin: 4px 0 0;
+}
+
+.topbar .ghost {
+    min-width: 160px;
+}
+
+@media (max-width: 720px) {
+    .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

@@ -1,0 +1,71 @@
+.menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    align-items: stretch;
+}
+
+.tile {
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid #1f2937;
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    gap: 8px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+    height: 100%;
+    min-height: 360px;
+}
+
+.time-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: #cbd5e1;
+}
+
+.time-field input {
+    background: #0b1220;
+    color: #e2e8f0;
+    border: 1px solid #1f2937;
+    border-radius: 10px;
+    padding: 10px 12px;
+    min-height: 54px;
+    font-size: 16px;
+}
+
+.time-field select {
+    background: #0b1220;
+    color: #e2e8f0;
+    border: 1px solid #1f2937;
+    border-radius: 10px;
+    padding: 12px;
+    min-height: 54px;
+    font-size: 16px;
+    appearance: none;
+    width: 100%;
+}
+
+.time-field select:focus-visible,
+.time-field input:focus-visible {
+    outline: 2px solid #334155;
+    outline-offset: 1px;
+}
+
+.tile h3 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.tile .primary {
+    width: 100%;
+    margin-top: auto;
+}
+
+@media (max-width: 640px) {
+    .tile h3 {
+        font-size: 16px;
+    }
+}

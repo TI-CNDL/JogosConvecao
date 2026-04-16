@@ -1,0 +1,21 @@
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: #cbd5e1;
+}
+
+.field span {
+    font-size: 14px;
+    letter-spacing: 0.03em;
+}
+
+.input {
+    width: 100%;
+}
