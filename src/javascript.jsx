@@ -3,7 +3,6 @@ import MemoryGame from "./components/memoryGame/MemoryGame.jsx";
 import QuizGame from "./components/quizGame/QuizGame.jsx";
 import HangmanGame from "./components/hangmanGame/HangmanGame.jsx";
 import WordSearchGame from "./components/wordSearchGame/WordSearchGame.jsx";
-import PacmanGame from "./components/pacmanGame/PacmanGame.jsx";
 import PlayerForm from "./components/playerForm/PlayerForm.jsx";
 import MenuGrid from "./components/menuGrid/MenuGrid.jsx";
 import RankingTable from "./components/rankingTable/RankingTable.jsx";
@@ -12,7 +11,6 @@ import HeaderBar from "./components/headerBar/HeaderBar.jsx";
 const games = [
   { id: "memory", title: "Jogo da memória", description: "Ache os pares." },
   { id: "wordsearch", title: "Caça-palavras", description: "Encontre todos." },
-  { id: "pacman", title: "Pac-man", description: "Colete os pontos." },
   { id: "hangman", title: "Forca", description: "Descubra a palavra." },
   { id: "quiz", title: "Quiz", description: "3 perguntas rápidas." },
 ];
@@ -20,7 +18,6 @@ const games = [
 const gameLabels = {
   memory: "Memória",
   wordsearch: "Caça-palavras",
-  pacman: "Pac-man",
   hangman: "Forca",
   quiz: "Quiz",
 };
@@ -171,17 +168,8 @@ const wordSearchWords = [
 const defaultTimeLimits = {
   memory: 120,
   wordsearch: 150,
-  pacman: 180,
   hangman: 150,
   quiz: 120,
-};
-
-const defaultLives = {
-  memory: 6,
-  wordsearch: 5,
-  pacman: 3,
-  hangman: 6,
-  quiz: 3,
 };
 
 const defaultPairs = {
@@ -227,7 +215,6 @@ const gameComponents = {
       {...props}
     />
   ),
-  pacman: (props) => <PacmanGame {...props} />,
   hangman: (props) => <HangmanGame words={hangmanWords} {...props} />,
   quiz: (props) => (
     <QuizGame
@@ -245,7 +232,6 @@ export function App() {
   const [phone, setPhone] = useState("");
   const [ranking, setRanking] = useState([]);
   const [timeLimits, setTimeLimits] = useState(defaultTimeLimits);
-  const [livesLimits, setLivesLimits] = useState(defaultLives);
   const [pairsLimits, setPairsLimits] = useState(defaultPairs);
   const [gridSizes, setGridSizes] = useState(defaultGridSizes);
   const [quizQuestionLimits, setQuizQuestionLimits] =
@@ -265,8 +251,6 @@ export function App() {
     );
     if (storedSettings.timeLimits)
       setTimeLimits({ ...defaultTimeLimits, ...storedSettings.timeLimits });
-    if (storedSettings.livesLimits)
-      setLivesLimits({ ...defaultLives, ...storedSettings.livesLimits });
     if (storedSettings.pairsLimits)
       setPairsLimits({ ...defaultPairs, ...storedSettings.pairsLimits });
     if (storedSettings.gridSizes)
@@ -290,7 +274,7 @@ export function App() {
   const currentGameLabel = selectedGame ? gameLabels[selectedGame] : null;
   const sortRanking = (rows) =>
     [...rows].sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
+      if (a.score !== b.score) return a.score - b.score;
       const aTime = a.elapsedMs ?? Number.POSITIVE_INFINITY;
       const bTime = b.elapsedMs ?? Number.POSITIVE_INFINITY;
       return aTime - bTime;
@@ -319,7 +303,6 @@ export function App() {
         storageKeys.settings,
         JSON.stringify({
           timeLimits,
-          livesLimits,
           pairsLimits,
           gridSizes,
           quizQuestionLimits,
@@ -328,7 +311,7 @@ export function App() {
     } catch {
       // ignore persist errors
     }
-  }, [timeLimits, livesLimits, pairsLimits, gridSizes, quizQuestionLimits]);
+  }, [timeLimits, pairsLimits, gridSizes, quizQuestionLimits]);
 
   useEffect(() => {
     try {
@@ -361,10 +344,6 @@ export function App() {
 
   const handleTimeLimitChange = (gameId, valueSeconds) => {
     setTimeLimits((prev) => ({ ...prev, [gameId]: valueSeconds }));
-  };
-
-  const handleLivesChange = (gameId, valueLives) => {
-    setLivesLimits((prev) => ({ ...prev, [gameId]: valueLives }));
   };
 
   const handlePairsChange = (gameId, valuePairs) => {
@@ -447,12 +426,10 @@ export function App() {
           <MenuGrid
             games={games}
             timeLimits={timeLimits}
-            livesLimits={livesLimits}
             pairsLimits={pairsLimits}
             gridSizes={gridSizes}
             quizQuestionLimits={quizQuestionLimits}
             onTimeLimitChange={handleTimeLimitChange}
-            onLivesChange={handleLivesChange}
             onPairsChange={handlePairsChange}
             onGridSizeChange={handleGridSizeChange}
             onQuizLimitChange={handleQuizLimitChange}
@@ -500,7 +477,6 @@ export function App() {
             <ActiveGame
               onScore={handleScore}
               timeLimitSeconds={timeLimits[selectedGame]}
-              livesLimit={livesLimits[selectedGame]}
               ranking={currentGameRanking}
               pairCount={pairsLimits[selectedGame]}
               gridSize={gridSizes[selectedGame]}

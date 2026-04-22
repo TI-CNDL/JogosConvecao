@@ -5,7 +5,6 @@ export default function QuizGame({
   questions = [],
   onScore,
   timeLimitSeconds = 90,
-  livesLimit = 3,
   ranking = [],
   questionLimit = null,
 }) {
@@ -49,34 +48,24 @@ export default function QuizGame({
 
   const noQuestions = randomizedQuestions.length === 0;
   const [step, setStep] = useState(0);
-  const [score, setScore] = useState(0);
+  const [errors, setErrors] = useState(0);
   const [finished, setFinished] = useState(noQuestions);
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
   const [timedOut, setTimedOut] = useState(false);
   const [reported, setReported] = useState(false);
-  const [livesLeft, setLivesLeft] = useState(livesLimit);
-  const [outOfLives, setOutOfLives] = useState(false);
   const [answersByStep, setAnswersByStep] = useState({});
 
   useEffect(() => {
     // Reset completo ao mudar props
     setStep(0);
-    setScore(0);
+    setErrors(0);
     setFinished(noQuestions);
     setTimeLeft(timeLimitSeconds);
     setTimedOut(false);
     setReported(false);
-    setLivesLeft(livesLimit);
-    setOutOfLives(false);
     setAnswersByStep({});
     setShuffleKey((k) => k + 1);
-  }, [
-    sanitizedQuestions,
-    timeLimitSeconds,
-    livesLimit,
-    noQuestions,
-    questionLimit,
-  ]);
+  }, [sanitizedQuestions, timeLimitSeconds, noQuestions, questionLimit]);
 
   useEffect(() => {
     if (finished) return undefined;
@@ -99,9 +88,9 @@ export default function QuizGame({
       const elapsedMs = Math.max(0, (timeLimitSeconds - timeLeft) * 1000);
       onScore?.({
         game: "Quiz",
-        score,
+        score: errors,
         elapsedMs,
-        timedOut: timedOut || outOfLives || noQuestions,
+        timedOut: timedOut || noQuestions,
       });
       setReported(true);
     }
@@ -109,11 +98,10 @@ export default function QuizGame({
     finished,
     reported,
     onScore,
-    score,
+    errors,
     timeLimitSeconds,
     timeLeft,
     timedOut,
-    outOfLives,
     noQuestions,
   ]);
 
@@ -123,37 +111,23 @@ export default function QuizGame({
     if (finished || noQuestions || !current) return;
     setAnswersByStep((prev) => ({ ...prev, [step]: option }));
     const correct = option === current.answer;
-    const nextScore = score + (correct ? 1 : 0);
-    setScore(nextScore);
-
-    if (!correct) {
-      setLivesLeft((prev) => {
-        const nextLives = Math.max(0, prev - 1);
-        if (nextLives === 0) {
-          setFinished(true);
-          setOutOfLives(true);
-        }
-        return nextLives;
-      });
-    }
+    if (!correct) setErrors((prev) => prev + 1);
 
     const nextStep = step + 1;
     if (nextStep >= randomizedQuestions.length) {
       setFinished(true);
-    } else if (!(livesLeft - (correct ? 0 : 1) <= 0)) {
+    } else {
       setStep(nextStep);
     }
   };
 
   const reset = () => {
     setStep(0);
-    setScore(0);
+    setErrors(0);
     setFinished(noQuestions);
     setTimeLeft(timeLimitSeconds);
     setTimedOut(false);
     setReported(false);
-    setLivesLeft(livesLimit);
-    setOutOfLives(false);
     setAnswersByStep({});
     setShuffleKey((k) => k + 1);
   };
@@ -166,23 +140,18 @@ export default function QuizGame({
           <h2>{finished ? "Resultado" : `Pergunta ${step + 1}`}</h2>
         </div>
         <span className="pill">Tempo: {timeLeft}s</span>
-        <span className="pill">Vidas: {livesLeft}</span>
-        <span className="pill">{score} acertos</span>
+        <span className="pill">Erros: {errors}</span>
       </div>
       {finished ? (
         <div className="result-box" aria-live="polite">
           <p>
             {timedOut
               ? "Tempo esgotado"
-              : outOfLives
-                ? "Sem vidas"
-                : noQuestions
-                  ? "Sem perguntas para jogar"
-                  : "Placar final"}
+              : noQuestions
+                ? "Sem perguntas para jogar"
+                : "Placar final"}
           </p>
-          <h3>
-            {score}/{randomizedQuestions.length} corretas
-          </h3>
+          <h3>Erros: {errors}</h3>
           <p>Tempo: {timeLimitSeconds - timeLeft}s</p>
 
           {randomizedQuestions.length > 0 && (
@@ -221,7 +190,7 @@ export default function QuizGame({
               {ranking.slice(0, 5).map((row) => (
                 <div key={row.id} className="mini-row">
                   <span>{row.name}</span>
-                  <span>{row.score} pts</span>
+                  <span>{row.score} erros</span>
                   <span>{Math.round((row.elapsedMs ?? 0) / 1000)}s</span>
                 </div>
               ))}

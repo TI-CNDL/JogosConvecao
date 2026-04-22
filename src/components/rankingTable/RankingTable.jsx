@@ -21,7 +21,7 @@ export default function RankingTable({ ranking = [] }) {
           <div className="table-head">
             <span>Nome</span>
             <span>Jogo</span>
-            <span>Pontos</span>
+            <span>Erros</span>
             <span>Tempo</span>
           </div>
           {ranking.map((row) => (

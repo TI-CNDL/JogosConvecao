@@ -5,7 +5,6 @@ export default function HangmanGame({
   words = [],
   onScore,
   timeLimitSeconds = 150,
-  livesLimit = 6,
   ranking = [],
 }) {
   const normalize = (text) =>
@@ -29,16 +28,11 @@ export default function HangmanGame({
   const [secret, setSecret] = useState(() => pickRandomWord());
   const [guessed, setGuessed] = useState(new Set());
   const [errors, setErrors] = useState(0);
-  const maxErrors = livesLimit;
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
   const [finished, setFinished] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [reported, setReported] = useState(false);
   const noWords = normalizedWords.length === 0;
-
-  useEffect(() => {
-    setErrors(0);
-  }, [livesLimit]);
 
   useEffect(() => {
     // Reset completo ao mudar props
@@ -49,7 +43,7 @@ export default function HangmanGame({
     setFinished(noWords);
     setTimedOut(false);
     setReported(false);
-  }, [pickRandomWord, timeLimitSeconds, livesLimit, noWords]);
+  }, [pickRandomWord, timeLimitSeconds, noWords]);
 
   const secretNormalized = useMemo(() => normalize(secret), [secret]);
 
@@ -61,7 +55,6 @@ export default function HangmanGame({
   const won =
     secret.length > 0 &&
     secretNormalized.split("").every((letter) => guessed.has(letter));
-  const lost = errors >= maxErrors;
 
   useEffect(() => {
     if (finished) return undefined;
@@ -81,19 +74,19 @@ export default function HangmanGame({
 
   useEffect(() => {
     if (noWords) return;
-    if ((won || lost) && !finished) {
+    if (won && !finished) {
       setFinished(true);
     }
-  }, [won, lost, finished, noWords]);
+  }, [won, finished, noWords]);
 
   useEffect(() => {
     if (finished && !reported) {
       const elapsedMs = Math.max(0, (timeLimitSeconds - timeLeft) * 1000);
       onScore?.({
         game: "Forca",
-        score: Math.max(0, maxErrors - errors),
+        score: errors,
         elapsedMs,
-        timedOut: timedOut || lost || noWords,
+        timedOut: timedOut || noWords,
       });
       setReported(true);
     }
@@ -102,18 +95,15 @@ export default function HangmanGame({
     reported,
     onScore,
     errors,
-    maxErrors,
     timeLeft,
     timedOut,
-    lost,
     timeLimitSeconds,
     noWords,
   ]);
 
   const pick = (letter) => {
     const normalizedLetter = normalize(letter);
-    if (won || lost || guessed.has(normalizedLetter) || finished || noWords)
-      return;
+    if (won || guessed.has(normalizedLetter) || finished || noWords) return;
     setGuessed((prev) => new Set(prev).add(normalizedLetter));
     if (!secretNormalized.includes(normalizedLetter)) {
       setErrors((prev) => prev + 1);
@@ -135,17 +125,9 @@ export default function HangmanGame({
       <div className="panel-head">
         <div>
           <p className="eyebrow">Forca</p>
-          <h2>
-            {won
-              ? "Você venceu!"
-              : lost
-                ? "Tente novamente"
-                : "Adivinhe a palavra"}
-          </h2>
+          <h2>{won ? "Você venceu!" : "Adivinhe a palavra"}</h2>
         </div>
-        <span className={`pill ${errors >= maxErrors - 2 ? "warning" : ""}`}>
-          Vidas: {maxErrors - errors}
-        </span>
+        <span className="pill">Erros: {errors}</span>
         <span className="pill">Tempo: {timeLeft}s</span>
       </div>
       <div className="hangman-word" aria-live="polite">
@@ -156,7 +138,7 @@ export default function HangmanGame({
           <button
             key={letter}
             className="key"
-            disabled={won || lost || guessed.has(letter) || finished || noWords}
+            disabled={won || guessed.has(letter) || finished || noWords}
             onClick={() => pick(letter)}
           >
             {letter}
@@ -166,20 +148,24 @@ export default function HangmanGame({
       {finished && (
         <div className="result-box">
           <p>
-            {timedOut
-              ? "Tempo esgotado"
-              : won
-                ? "Boa! Palavra revelada."
-                : `A palavra era ${secret}.`}
+            {noWords
+              ? "Sem palavras para jogar."
+              : timedOut
+                ? `Tempo esgotado. A palavra era ${secret}.`
+                : won
+                  ? "Boa! Palavra revelada."
+                  : `A palavra era ${secret}.`}
           </p>
-          <p>Tempo: {timeLimitSeconds - timeLeft}s</p>
+          <p>
+            Erros: {errors} | Tempo: {timeLimitSeconds - timeLeft}s
+          </p>
           {ranking.length > 0 && (
             <div className="mini-ranking">
               <p className="eyebrow">Ranking deste jogo</p>
               {ranking.slice(0, 5).map((row) => (
                 <div key={row.id} className="mini-row">
                   <span>{row.name}</span>
-                  <span>{row.score} pts</span>
+                  <span>{row.score} erros</span>
                   <span>{Math.round((row.elapsedMs ?? 0) / 1000)}s</span>
                 </div>
               ))}

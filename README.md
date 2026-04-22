@@ -1,16 +1,45 @@
-# React + Vite
+# Jogos Convenção
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicação web para totem touch com minijogos de convenção em React + Vite.
 
-Currently, two official plugins are available:
+## Tecnologias
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React 19
+- Vite 8
+- ESLint 9
+- Armazenamento local com localStorage
 
-## React Compiler
+## Jogos disponíveis
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Jogo da Memória
+- Caça-palavras
+- Forca
+- Quiz
 
-## Expanding the ESLint configuration
+## Regras de pontuação
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- O ranking usa quantidade de erros.
+- Menor número de erros fica na frente.
+- Em caso de empate, menor tempo vence.
+- Não existe mais sistema de vidas.
+
+## Ranking
+
+- Área principal: Top 1 de cada jogo.
+- Dentro de cada jogo: ranking do jogo atual.
+
+## Persistência
+
+O aplicativo salva no localStorage:
+
+- Dados do jogador (nome e telefone)
+- Configurações por jogo (tempo, pares, grade e quantidade de perguntas)
+- Sessão atual (tela e jogo selecionado)
+- Ranking
+
+## Scripts
+
+- npm run dev
+- npm run build
+- npm run preview
+- npm run lint

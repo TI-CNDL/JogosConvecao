@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./memoryGame.style.css";
 
 const mulberry32 = (seed) => {
@@ -23,18 +23,20 @@ export default function MemoryGame({
   symbols = [],
   onScore,
   timeLimitSeconds = 120,
-  livesLimit = 6,
   ranking = [],
   seed = null,
   pairCount = null,
 }) {
   const noSymbols = symbols.length === 0;
   const previewTimer = useRef(null);
+  const runRef = useRef(0);
 
-  const buildDeck = () => {
-    const rng = seed === null ? Math.random : mulberry32(seed);
+  const buildDeck = (runKey = 0) => {
+    const rng =
+      seed === null ? Math.random : mulberry32(Number(seed) + Number(runKey));
     const maxPairs = pairCount ?? symbols.length;
-    const selected = symbols.slice(
+    const shuffledSymbols = shuffle(symbols, rng);
+    const selected = shuffledSymbols.slice(
       0,
       Math.max(0, Math.min(maxPairs, symbols.length)),
     );
@@ -47,31 +49,27 @@ export default function MemoryGame({
   };
 
   const [cards, setCards] = useState(() => {
-    return buildDeck();
+    return buildDeck(runRef.current);
   });
   const [flipped, setFlipped] = useState([]);
   const [locked, setLocked] = useState(false);
-  const [pairs, setPairs] = useState(0);
-  const totalPairs = useMemo(() => symbols.length, [symbols.length]);
+  const [errors, setErrors] = useState(0);
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
   const [finished, setFinished] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [reported, setReported] = useState(false);
-  const [livesLeft, setLivesLeft] = useState(livesLimit);
-  const [outOfLives, setOutOfLives] = useState(false);
   const [previewing, setPreviewing] = useState(false);
 
   const resetGame = () => {
-    setCards(buildDeck());
+    runRef.current += 1;
+    setCards(buildDeck(runRef.current));
     setFlipped([]);
     setLocked(false);
-    setPairs(0);
+    setErrors(0);
     setTimeLeft(timeLimitSeconds);
     setFinished(noSymbols);
     setTimedOut(false);
     setReported(false);
-    setLivesLeft(livesLimit);
-    setOutOfLives(false);
     setPreviewing(true);
     if (previewTimer.current) clearTimeout(previewTimer.current);
     previewTimer.current = setTimeout(() => setPreviewing(false), 3000);
@@ -79,7 +77,7 @@ export default function MemoryGame({
 
   useEffect(() => {
     resetGame();
-  }, [symbols, timeLimitSeconds, livesLimit, seed, pairCount]);
+  }, [symbols, timeLimitSeconds, seed, pairCount]);
 
   useEffect(
     () => () => {
@@ -110,9 +108,9 @@ export default function MemoryGame({
       const elapsedMs = Math.max(0, (timeLimitSeconds - timeLeft) * 1000);
       onScore?.({
         game: "Memória",
-        score: pairs,
+        score: errors,
         elapsedMs,
-        timedOut: timedOut || outOfLives,
+        timedOut,
       });
       setReported(true);
     }
@@ -120,11 +118,10 @@ export default function MemoryGame({
     finished,
     reported,
     onScore,
-    pairs,
+    errors,
     timeLimitSeconds,
     timeLeft,
     timedOut,
-    outOfLives,
   ]);
 
   const handleFlip = (cardId) => {
@@ -145,17 +142,8 @@ export default function MemoryGame({
             next.includes(c.id) && isMatch ? { ...c, matched: true } : c,
           ),
         );
-        if (isMatch) {
-          setPairs((p) => p + 1);
-        } else {
-          setLivesLeft((prev) => {
-            const nextLives = Math.max(0, prev - 1);
-            if (nextLives === 0) {
-              setFinished(true);
-              setOutOfLives(true);
-            }
-            return nextLives;
-          });
+        if (!isMatch) {
+          setErrors((prev) => prev + 1);
         }
         setFlipped([]);
         setLocked(false);
@@ -179,14 +167,11 @@ export default function MemoryGame({
           <h2>Forme os pares</h2>
         </div>
         <span className="pill">Tempo: {timeLeft}s</span>
-        <span className="pill">Vidas: {livesLeft}</span>
+        <span className="pill">Erros: {errors}</span>
         {finished && !timedOut && (
           <span className="pill success">Concluído</span>
         )}
         {timedOut && <span className="pill warning">Tempo esgotado</span>}
-        {outOfLives && !timedOut && (
-          <span className="pill warning">Sem vidas</span>
-        )}
         {noSymbols && <span className="pill warning">Sem cartas</span>}
       </div>
       {!noSymbols ? (
@@ -216,21 +201,17 @@ export default function MemoryGame({
       )}
       {finished && (
         <div className="result-box" aria-live="polite">
-          <p>
-            {timedOut
-              ? "Tempo esgotado"
-              : outOfLives
-                ? "Sem vidas"
-                : "Tempo de conclusão"}
-          </p>
-          <h3>{timeLimitSeconds - timeLeft}s</h3>
+          <p>{timedOut ? "Tempo esgotado" : "Concluído"}</p>
+          <h3>
+            Erros: {errors} | Tempo: {timeLimitSeconds - timeLeft}s
+          </h3>
           {ranking.length > 0 && (
             <div className="mini-ranking">
               <p className="eyebrow">Ranking deste jogo</p>
               {ranking.slice(0, 5).map((row) => (
                 <div key={row.id} className="mini-row">
                   <span>{row.name}</span>
-                  <span>{row.score} pts</span>
+                  <span>{row.score} erros</span>
                   <span>{Math.round((row.elapsedMs ?? 0) / 1000)}s</span>
                 </div>
               ))}

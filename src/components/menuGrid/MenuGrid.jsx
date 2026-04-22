@@ -3,12 +3,10 @@ import "./menuGrid.style.css";
 export default function MenuGrid({
   games,
   timeLimits,
-  livesLimits,
   pairsLimits,
   gridSizes,
   quizQuestionLimits,
   onTimeLimitChange,
-  onLivesChange,
   onPairsChange,
   onGridSizeChange,
   onQuizLimitChange,
@@ -31,17 +29,6 @@ export default function MenuGrid({
               onChange={(e) =>
                 onTimeLimitChange(game.id, Number(e.target.value))
               }
-            />
-          </label>
-          <label className="time-field">
-            <span>Vidas</span>
-            <input
-              type="number"
-              min={1}
-              max={9}
-              step={1}
-              value={livesLimits?.[game.id] ?? 3}
-              onChange={(e) => onLivesChange(game.id, Number(e.target.value))}
             />
           </label>
           {game.id === "memory" && (

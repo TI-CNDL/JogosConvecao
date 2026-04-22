@@ -86,7 +86,6 @@ export default function WordSearchGame({
   words = [],
   onScore,
   timeLimitSeconds = 120,
-  livesLimit = 5,
   ranking = [],
   gridSize = null,
   maxAttempts = 50,
@@ -115,8 +114,7 @@ export default function WordSearchGame({
   const [finished, setFinished] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [reported, setReported] = useState(false);
-  const [livesLeft, setLivesLeft] = useState(livesLimit);
-  const [outOfLives, setOutOfLives] = useState(false);
+  const [errors, setErrors] = useState(0);
   const [generationFailed, setGenerationFailed] = useState(false);
   const noWords = wordsFitting.length === 0;
   const gridCols = grid?.[0]?.length ?? computedSize;
@@ -137,16 +135,8 @@ export default function WordSearchGame({
     setFinished(noWords || newGrid === null);
     setTimedOut(false);
     setReported(false);
-    setLivesLeft(livesLimit);
-    setOutOfLives(false);
-  }, [
-    wordsFitting,
-    timeLimitSeconds,
-    livesLimit,
-    noWords,
-    computedSize,
-    maxAttempts,
-  ]);
+    setErrors(0);
+  }, [wordsFitting, timeLimitSeconds, noWords, computedSize, maxAttempts]);
 
   useEffect(() => {
     reset();
@@ -179,7 +169,7 @@ export default function WordSearchGame({
     if ((noWords || generationFailed) && !reported) {
       onScore?.({
         game: "Caça-palavras",
-        score: 0,
+        score: errors,
         elapsedMs: 0,
         timedOut: true,
       });
@@ -190,9 +180,9 @@ export default function WordSearchGame({
       const elapsedMs = Math.max(0, (timeLimitSeconds - timeLeft) * 1000);
       onScore?.({
         game: "Caça-palavras",
-        score: found.size,
+        score: errors,
         elapsedMs,
-        timedOut: timedOut || outOfLives,
+        timedOut,
       });
       setReported(true);
     }
@@ -200,11 +190,10 @@ export default function WordSearchGame({
     finished,
     reported,
     onScore,
-    found.size,
+    errors,
     timeLimitSeconds,
     timeLeft,
     timedOut,
-    outOfLives,
     noWords,
     generationFailed,
   ]);
@@ -254,14 +243,7 @@ export default function WordSearchGame({
       selected.forEach((c) => nextCells.add(`${c.row}-${c.col}`));
       setFoundCells(nextCells);
     } else if (!matchWord) {
-      setLivesLeft((prev) => {
-        const nextLives = Math.max(0, prev - 1);
-        if (nextLives === 0) {
-          setFinished(true);
-          setOutOfLives(true);
-        }
-        return nextLives;
-      });
+      setErrors((prev) => prev + 1);
     }
     setSelecting(false);
     setSelected([]);
@@ -280,7 +262,7 @@ export default function WordSearchGame({
           <h2>Encontre todas as palavras</h2>
         </div>
         <span className="pill">Tempo: {timeLeft}s</span>
-        <span className="pill">Vidas: {livesLeft}</span>
+        <span className="pill">Erros: {errors}</span>
         <span className="pill">
           {found.size}/{wordsFitting.length} achadas
         </span>
@@ -334,16 +316,10 @@ export default function WordSearchGame({
 
       {(finished || timedOut) && (
         <div className="result-box" aria-live="polite">
+          <p>{timedOut ? "Tempo esgotado" : "Concluído"}</p>
           <p>
-            {timedOut
-              ? "Tempo esgotado"
-              : outOfLives
-                ? "Sem vidas"
-                : "Concluído"}
-          </p>
-          <p>
-            {found.size}/{wordsFitting.length} palavras | Tempo:{" "}
-            {timeLimitSeconds - timeLeft}s
+            {found.size}/{wordsFitting.length} palavras | Erros: {errors} |
+            Tempo: {timeLimitSeconds - timeLeft}s
           </p>
           {ranking.length > 0 && (
             <div className="mini-ranking">
@@ -351,7 +327,7 @@ export default function WordSearchGame({
               {ranking.slice(0, 5).map((row) => (
                 <div key={row.id} className="mini-row">
                   <span>{row.name}</span>
-                  <span>{row.score} pts</span>
+                  <span>{row.score} erros</span>
                   <span>{Math.round((row.elapsedMs ?? 0) / 1000)}s</span>
                 </div>
               ))}
