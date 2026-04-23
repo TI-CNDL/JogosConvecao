@@ -456,8 +456,8 @@ export default function SoletraGame({
         <div className="result-box" aria-live="polite">
           <p>{timedOut ? "Tempo esgotado" : "Rodada concluida"}</p>
           <p>
-            Pontos: {calcularPontos(foundIndexes.size, targets.length || 1)}
-            | Erros: {sessionErrors + roundErrors}
+            Pontos: {calcularPontos(foundIndexes.size, targets.length || 1)}|
+            Erros: {sessionErrors + roundErrors}
           </p>
           {ranking.length > 0 && (
             <div className="mini-ranking">

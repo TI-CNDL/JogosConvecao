@@ -19,7 +19,8 @@ function generateGrid(words, size = 10, maxAttempts = 50) {
       for (let i = 0; i < word.length; i += 1) {
         const r = horizontal ? row : row + i;
         const c = horizontal ? col + i : col;
-        if (r < 0 || c < 0 || r >= currentSize || c >= currentSize) return false;
+        if (r < 0 || c < 0 || r >= currentSize || c >= currentSize)
+          return false;
         const cell = grid[r][c];
         if (cell && cell !== word[i]) return false;
       }
@@ -69,7 +70,9 @@ function generateGrid(words, size = 10, maxAttempts = 50) {
         for (let r = 0; r < currentSize; r += 1) {
           for (let c = 0; c < currentSize; c += 1) {
             if (!grid[r][c]) {
-              grid[r][c] = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+              grid[r][c] = String.fromCharCode(
+                65 + Math.floor(Math.random() * 26),
+              );
             }
           }
         }
@@ -97,9 +100,15 @@ export default function WordSearchGame({
   maxAttempts = 50,
   maxWords = null,
 }) {
-  const upperWords = useMemo(() => words.map((word) => word.toUpperCase()), [words]);
+  const upperWords = useMemo(
+    () => words.map((word) => word.toUpperCase()),
+    [words],
+  );
   const computedSize = useMemo(() => {
-    const longest = upperWords.reduce((acc, word) => Math.max(acc, word.length), 0);
+    const longest = upperWords.reduce(
+      (acc, word) => Math.max(acc, word.length),
+      0,
+    );
     return gridSize ?? Math.max(10, longest + 2);
   }, [upperWords, gridSize]);
 
@@ -108,7 +117,9 @@ export default function WordSearchGame({
     return maxWords ? fitting.slice(0, maxWords) : fitting;
   }, [upperWords, computedSize, maxWords]);
 
-  const [grid, setGrid] = useState(() => generateGrid(wordsFitting, computedSize, maxAttempts));
+  const [grid, setGrid] = useState(() =>
+    generateGrid(wordsFitting, computedSize, maxAttempts),
+  );
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState([]);
   const [direction, setDirection] = useState(null);
@@ -126,7 +137,9 @@ export default function WordSearchGame({
   const gridStyle = useMemo(() => ({ "--ws-cols": gridCols }), [gridCols]);
 
   const reset = useCallback(() => {
-    const newGrid = noWords ? null : generateGrid(wordsFitting, computedSize, maxAttempts);
+    const newGrid = noWords
+      ? null
+      : generateGrid(wordsFitting, computedSize, maxAttempts);
     setGenerationFailed(!noWords && newGrid === null);
     setGrid(newGrid);
     setSelecting(false);
@@ -182,7 +195,18 @@ export default function WordSearchGame({
       timedOut: timedOut || noWords || generationFailed,
     });
     setReported(true);
-  }, [finished, reported, onScore, found.size, wordsFitting.length, sessionErrors, timeLeft, timedOut, noWords, generationFailed]);
+  }, [
+    finished,
+    reported,
+    onScore,
+    found.size,
+    wordsFitting.length,
+    sessionErrors,
+    timeLeft,
+    timedOut,
+    noWords,
+    generationFailed,
+  ]);
 
   const beginSelect = (row, col) => {
     if (finished || noWords || generationFailed) return;
@@ -220,7 +244,9 @@ export default function WordSearchGame({
 
     const letters = selected.map((cell) => grid[cell.row][cell.col]).join("");
     const reverse = letters.split("").reverse().join("");
-    const matchWord = wordsFitting.find((word) => word === letters || word === reverse);
+    const matchWord = wordsFitting.find(
+      (word) => word === letters || word === reverse,
+    );
 
     if (matchWord && !found.has(matchWord)) {
       const nextFound = new Set(found);
@@ -239,7 +265,8 @@ export default function WordSearchGame({
     setDirection(null);
   };
 
-  const isSelected = (row, col) => selected.some((cell) => cell.row === row && cell.col === col);
+  const isSelected = (row, col) =>
+    selected.some((cell) => cell.row === row && cell.col === col);
   const isFound = (row, col) => foundCells.has(`${row}-${col}`);
 
   return (
@@ -250,9 +277,13 @@ export default function WordSearchGame({
           <h2>Encontre todas as palavras</h2>
         </div>
         <span className="pill">Tempo: {timeLeft}s</span>
-        <span className="pill">Pontos: {calcularPontos(found.size, wordsFitting.length || 1)}</span>
+        <span className="pill">
+          Pontos: {calcularPontos(found.size, wordsFitting.length || 1)}
+        </span>
         <span className="pill">Erros: {sessionErrors}</span>
-        <span className="pill">{found.size}/{wordsFitting.length} achadas</span>
+        <span className="pill">
+          {found.size}/{wordsFitting.length} achadas
+        </span>
       </div>
 
       {!noWords && !generationFailed && grid ? (
@@ -280,7 +311,11 @@ export default function WordSearchGame({
         </div>
       ) : (
         <div className="result-box" aria-live="polite">
-          <p>{noWords ? "Sem palavras para jogar." : "Não foi possível gerar a grade."}</p>
+          <p>
+            {noWords
+              ? "Sem palavras para jogar."
+              : "Não foi possível gerar a grade."}
+          </p>
           <button className="primary" onClick={reset}>
             Tentar novamente
           </button>
@@ -289,7 +324,10 @@ export default function WordSearchGame({
 
       <div className="ws-words">
         {wordsFitting.map((word) => (
-          <span key={word} className={`word-chip ${found.has(word) ? "done" : ""}`}>
+          <span
+            key={word}
+            className={`word-chip ${found.has(word) ? "done" : ""}`}
+          >
             {word}
           </span>
         ))}
@@ -299,7 +337,8 @@ export default function WordSearchGame({
         <div className="result-box" aria-live="polite">
           <p>{timedOut ? "Tempo esgotado" : "Concluído"}</p>
           <p>
-            Pontos: {calcularPontos(found.size, wordsFitting.length || 1)} | Erros: {sessionErrors}
+            Pontos: {calcularPontos(found.size, wordsFitting.length || 1)} |
+            Erros: {sessionErrors}
           </p>
           {ranking.length > 0 && (
             <div className="mini-ranking">

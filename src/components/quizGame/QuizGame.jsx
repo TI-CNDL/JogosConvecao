@@ -168,7 +168,8 @@ export default function QuizGame({
         </div>
         <span className="pill">Tempo: {timeLeft}s</span>
         <span className="pill">
-          Pontos: {calcularPontosQuiz(
+          Pontos:{" "}
+          {calcularPontosQuiz(
             roundCorrect,
             roundErrors,
             randomizedQuestions.length || 1,
@@ -186,7 +187,8 @@ export default function QuizGame({
                 : "Placar final"}
           </p>
           <h3>
-            Pontos: {calcularPontosQuiz(
+            Pontos:{" "}
+            {calcularPontosQuiz(
               roundCorrect,
               roundErrors,
               randomizedQuestions.length || 1,

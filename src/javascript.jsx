@@ -382,7 +382,7 @@ export function App() {
   const [quizQuestionLimits, setQuizQuestionLimits] =
     useState(defaultQuizCounts);
 
-    const effectiveTimeLimit = (gameId) => Math.min(timeLimits[gameId] ?? 30, 30);
+  const effectiveTimeLimit = (gameId) => Math.min(timeLimits[gameId] ?? 30, 30);
 
   useEffect(() => {
     const storedPlayer = safeParse(
@@ -564,7 +564,9 @@ export function App() {
     const playerName = isKnownPhone ? knownLead.name : name;
     if (!phoneKey || !playerName || !gameId) return;
 
-    const timeBonus = timedOut ? 0 : Math.max(0, Number(remainingSeconds || 0)) * 5;
+    const timeBonus = timedOut
+      ? 0
+      : Math.max(0, Number(remainingSeconds || 0)) * 5;
     const totalPoints = Number(points || 0) + timeBonus;
 
     setRanking((prev) => {

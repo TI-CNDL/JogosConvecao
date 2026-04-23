@@ -836,7 +836,8 @@ export default function LabirintoGame({
         <div className="result-box" aria-live="polite">
           <p>{timedOut ? "Tempo esgotado" : `Palavra ${word} concluida`}</p>
           <p>
-            Pontos: {calcularPontos(progress + 1, word.length || 1)} | Erros: {sessionErrors + roundErrors}
+            Pontos: {calcularPontos(progress + 1, word.length || 1)} | Erros:{" "}
+            {sessionErrors + roundErrors}
           </p>
           {ranking.length > 0 && (
             <div className="mini-ranking">

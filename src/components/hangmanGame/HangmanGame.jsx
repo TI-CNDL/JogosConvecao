@@ -169,7 +169,8 @@ export default function HangmanGame({
                 : `A palavra era ${secret}.`}
           </p>
           <p>
-            Pontos: {calcularPontos(revealedCount, secret.length || 1)} | Erros: {sessionErrors}
+            Pontos: {calcularPontos(revealedCount, secret.length || 1)} | Erros:{" "}
+            {sessionErrors}
           </p>
           {ranking.length > 0 && (
             <div className="mini-ranking">
