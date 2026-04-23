@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import "./memoryGame.style.css";
 
 const mulberry32 = (seed) => {
@@ -17,6 +17,11 @@ const shuffle = (list, rng = Math.random) => {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+};
+
+const calcularPontos = (parcial, total) => {
+  if (!total || total <= 0) return 0;
+  return Math.floor((Math.max(0, parcial) / total) * 100);
 };
 
 export default function MemoryGame({
@@ -48,12 +53,10 @@ export default function MemoryGame({
     }));
   };
 
-  const [cards, setCards] = useState(() => {
-    return buildDeck(runRef.current);
-  });
+  const [cards, setCards] = useState(() => buildDeck(runRef.current));
   const [flipped, setFlipped] = useState([]);
   const [locked, setLocked] = useState(false);
-  const [errors, setErrors] = useState(0);
+  const [sessionErrors, setSessionErrors] = useState(0);
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
   const [finished, setFinished] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
@@ -65,14 +68,14 @@ export default function MemoryGame({
     setCards(buildDeck(runRef.current));
     setFlipped([]);
     setLocked(false);
-    setErrors(0);
+    setSessionErrors(0);
     setTimeLeft(timeLimitSeconds);
     setFinished(noSymbols);
     setTimedOut(false);
     setReported(false);
     setPreviewing(true);
     if (previewTimer.current) clearTimeout(previewTimer.current);
-    previewTimer.current = setTimeout(() => setPreviewing(false), 3000);
+    previewTimer.current = setTimeout(() => setPreviewing(false), 1200);
   };
 
   useEffect(() => {
@@ -87,8 +90,7 @@ export default function MemoryGame({
   );
 
   useEffect(() => {
-    if (finished) return undefined;
-    if (noSymbols) return undefined;
+    if (finished || noSymbols) return undefined;
     const id = setInterval(() => {
       setTimeLeft((t) => {
         if (t <= 1) {
@@ -100,26 +102,36 @@ export default function MemoryGame({
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [finished]);
+  }, [finished, noSymbols]);
+
+  const matchedPairs = Math.floor(cards.filter((c) => c.matched).length / 2);
+  const totalPairs = Math.max(1, Math.floor(cards.length / 2));
+  const solved = cards.length > 0 && cards.every((c) => c.matched);
 
   useEffect(() => {
-    if (noSymbols) return;
-    if (finished && !reported) {
-      const elapsedMs = Math.max(0, (timeLimitSeconds - timeLeft) * 1000);
-      onScore?.({
-        game: "Memória",
-        score: errors,
-        elapsedMs,
-        timedOut,
-      });
-      setReported(true);
-    }
+    if (!solved || finished) return;
+    setFinished(true);
+  }, [solved, finished]);
+
+  useEffect(() => {
+    if (!finished || reported) return;
+    const partialPoints = calcularPontos(matchedPairs, totalPairs);
+    onScore?.({
+      game: "Memoria",
+      score: partialPoints,
+      points: partialPoints,
+      errors: sessionErrors,
+      remainingSeconds: timeLeft,
+      timedOut,
+    });
+    setReported(true);
   }, [
     finished,
     reported,
     onScore,
-    errors,
-    timeLimitSeconds,
+    matchedPairs,
+    totalPairs,
+    sessionErrors,
     timeLeft,
     timedOut,
   ]);
@@ -143,42 +155,30 @@ export default function MemoryGame({
           ),
         );
         if (!isMatch) {
-          setErrors((prev) => prev + 1);
+          setSessionErrors((prev) => prev + 1);
         }
         setFlipped([]);
         setLocked(false);
-      }, 500);
+      }, 450);
     }
   };
-
-  const solved = cards.every((c) => c.matched);
-
-  useEffect(() => {
-    if (solved && !finished) {
-      setFinished(true);
-    }
-  }, [solved, finished]);
 
   return (
     <div className="panel">
       <div className="panel-head">
         <div>
-          <p className="eyebrow">Memória</p>
-          <h2>Forme os pares</h2>
+          <p className="eyebrow">Memoria</p>
+          <h2>{finished ? "Resultado" : "Forme os pares"}</h2>
         </div>
         <span className="pill">Tempo: {timeLeft}s</span>
-        <span className="pill">Erros: {errors}</span>
-        {finished && !timedOut && (
-          <span className="pill success">Concluído</span>
-        )}
-        {timedOut && <span className="pill warning">Tempo esgotado</span>}
-        {noSymbols && <span className="pill warning">Sem cartas</span>}
+        <span className="pill">Pontos: {calcularPontos(matchedPairs, totalPairs)}</span>
+        <span className="pill">Erros: {sessionErrors}</span>
       </div>
+
       {!noSymbols ? (
         <div className="memory-grid">
           {cards.map((card) => {
-            const show =
-              previewing || card.matched || flipped.includes(card.id);
+            const show = previewing || card.matched || flipped.includes(card.id);
             return (
               <button
                 key={card.id}
@@ -199,20 +199,19 @@ export default function MemoryGame({
           </button>
         </div>
       )}
+
       {finished && (
         <div className="result-box" aria-live="polite">
-          <p>{timedOut ? "Tempo esgotado" : "Concluído"}</p>
-          <h3>
-            Erros: {errors} | Tempo: {timeLimitSeconds - timeLeft}s
-          </h3>
+          <p>{timedOut ? "Tempo esgotado" : "Concluido"}</p>
+          <h3>Pontos totais: {calcularPontos(matchedPairs, totalPairs)}</h3>
           {ranking.length > 0 && (
             <div className="mini-ranking">
               <p className="eyebrow">Ranking deste jogo</p>
               {ranking.slice(0, 5).map((row) => (
                 <div key={row.id} className="mini-row">
                   <span>{row.name}</span>
-                  <span>{row.score} erros</span>
-                  <span>{Math.round((row.elapsedMs ?? 0) / 1000)}s</span>
+                  <span>{row.totalPoints ?? 0} pts</span>
+                  <span>{row.totalErrors ?? 0} erros</span>
                 </div>
               ))}
             </div>

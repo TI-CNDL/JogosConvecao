@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import "./hangmanGame.style.css";
 
+const calcularPontos = (parcial, total) => {
+  if (!total || total <= 0) return 0;
+  return Math.floor((Math.max(0, parcial) / total) * 100);
+};
+
 export default function HangmanGame({
   words = [],
   onScore,
@@ -27,7 +32,7 @@ export default function HangmanGame({
 
   const [secret, setSecret] = useState(() => pickRandomWord());
   const [guessed, setGuessed] = useState(new Set());
-  const [errors, setErrors] = useState(0);
+  const [sessionErrors, setSessionErrors] = useState(0);
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
   const [finished, setFinished] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
@@ -38,7 +43,7 @@ export default function HangmanGame({
     // Reset completo ao mudar props
     setSecret(pickRandomWord());
     setGuessed(new Set());
-    setErrors(0);
+    setSessionErrors(0);
     setTimeLeft(timeLimitSeconds);
     setFinished(noWords);
     setTimedOut(false);
@@ -55,6 +60,9 @@ export default function HangmanGame({
   const won =
     secret.length > 0 &&
     secretNormalized.split("").every((letter) => guessed.has(letter));
+  const revealedCount = secretNormalized
+    .split("")
+    .filter((letter) => guessed.has(letter)).length;
 
   useEffect(() => {
     if (finished) return undefined;
@@ -73,19 +81,21 @@ export default function HangmanGame({
   }, [finished]);
 
   useEffect(() => {
-    if (noWords) return;
-    if (won && !finished) {
+    if (noWords || finished) return;
+    if (won) {
       setFinished(true);
     }
   }, [won, finished, noWords]);
 
   useEffect(() => {
     if (finished && !reported) {
-      const elapsedMs = Math.max(0, (timeLimitSeconds - timeLeft) * 1000);
+      const partialPoints = calcularPontos(revealedCount, secret.length || 1);
       onScore?.({
         game: "Forca",
-        score: errors,
-        elapsedMs,
+        score: partialPoints,
+        points: partialPoints,
+        errors: sessionErrors,
+        remainingSeconds: timeLeft,
         timedOut: timedOut || noWords,
       });
       setReported(true);
@@ -94,10 +104,11 @@ export default function HangmanGame({
     finished,
     reported,
     onScore,
-    errors,
+    sessionErrors,
+    revealedCount,
+    secret,
     timeLeft,
     timedOut,
-    timeLimitSeconds,
     noWords,
   ]);
 
@@ -106,14 +117,14 @@ export default function HangmanGame({
     if (won || guessed.has(normalizedLetter) || finished || noWords) return;
     setGuessed((prev) => new Set(prev).add(normalizedLetter));
     if (!secretNormalized.includes(normalizedLetter)) {
-      setErrors((prev) => prev + 1);
+      setSessionErrors((prev) => prev + 1);
     }
   };
 
   const reset = () => {
     setSecret(pickRandomWord());
     setGuessed(new Set());
-    setErrors(0);
+    setSessionErrors(0);
     setTimeLeft(timeLimitSeconds);
     setFinished(noWords);
     setTimedOut(false);
@@ -125,9 +136,12 @@ export default function HangmanGame({
       <div className="panel-head">
         <div>
           <p className="eyebrow">Forca</p>
-          <h2>{won ? "Você venceu!" : "Adivinhe a palavra"}</h2>
+          <h2>{finished ? "Resultado" : "Adivinhe a palavra"}</h2>
         </div>
-        <span className="pill">Erros: {errors}</span>
+        <span className="pill">
+          Pontos: {calcularPontos(revealedCount, secret.length || 1)}
+        </span>
+        <span className="pill">Erros: {sessionErrors}</span>
         <span className="pill">Tempo: {timeLeft}s</span>
       </div>
       <div className="hangman-word" aria-live="polite">
@@ -152,12 +166,10 @@ export default function HangmanGame({
               ? "Sem palavras para jogar."
               : timedOut
                 ? `Tempo esgotado. A palavra era ${secret}.`
-                : won
-                  ? "Boa! Palavra revelada."
-                  : `A palavra era ${secret}.`}
+                : `A palavra era ${secret}.`}
           </p>
           <p>
-            Erros: {errors} | Tempo: {timeLimitSeconds - timeLeft}s
+            Pontos: {calcularPontos(revealedCount, secret.length || 1)} | Erros: {sessionErrors}
           </p>
           {ranking.length > 0 && (
             <div className="mini-ranking">
@@ -165,8 +177,8 @@ export default function HangmanGame({
               {ranking.slice(0, 5).map((row) => (
                 <div key={row.id} className="mini-row">
                   <span>{row.name}</span>
-                  <span>{row.score} erros</span>
-                  <span>{Math.round((row.elapsedMs ?? 0) / 1000)}s</span>
+                  <span>{row.totalPoints ?? 0} pts</span>
+                  <span>{row.totalErrors ?? 0} erros</span>
                 </div>
               ))}
             </div>

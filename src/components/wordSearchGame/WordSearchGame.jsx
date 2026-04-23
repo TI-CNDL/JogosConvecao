@@ -1,5 +1,10 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import "./wordSearchGame.style.css";
+
+const calcularPontos = (parcial, total) => {
+  if (!total || total <= 0) return 0;
+  return Math.floor((Math.max(0, parcial) / total) * 100);
+};
 
 function generateGrid(words, size = 10, maxAttempts = 50) {
   const ordered = [...words].sort((a, b) => b.length - a.length);
@@ -11,11 +16,10 @@ function generateGrid(words, size = 10, maxAttempts = 50) {
       );
 
     const canPlace = (grid, word, row, col, horizontal) => {
-      for (let i = 0; i < word.length; i++) {
+      for (let i = 0; i < word.length; i += 1) {
         const r = horizontal ? row : row + i;
         const c = horizontal ? col + i : col;
-        if (r < 0 || c < 0 || r >= currentSize || c >= currentSize)
-          return false;
+        if (r < 0 || c < 0 || r >= currentSize || c >= currentSize) return false;
         const cell = grid[r][c];
         if (cell && cell !== word[i]) return false;
       }
@@ -23,7 +27,7 @@ function generateGrid(words, size = 10, maxAttempts = 50) {
     };
 
     const applyPlace = (grid, word, row, col, horizontal) => {
-      for (let i = 0; i < word.length; i++) {
+      for (let i = 0; i < word.length; i += 1) {
         const r = horizontal ? row : row + i;
         const c = horizontal ? col + i : col;
         grid[r][c] = word[i];
@@ -34,7 +38,8 @@ function generateGrid(words, size = 10, maxAttempts = 50) {
       const maxRowBase = currentSize - word.length;
       const maxColBase = currentSize - word.length;
       if (maxRowBase < 0 || maxColBase < 0) return false;
-      for (let i = 0; i < attempts; i++) {
+
+      for (let i = 0; i < attempts; i += 1) {
         const horizontal = Math.random() > 0.5;
         const maxRow = horizontal ? currentSize - 1 : maxRowBase;
         const maxCol = horizontal ? maxColBase : currentSize - 1;
@@ -45,41 +50,42 @@ function generateGrid(words, size = 10, maxAttempts = 50) {
           return true;
         }
       }
+
       return false;
     };
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       const grid = emptyGrid();
       let allPlaced = true;
-      for (const w of ordered) {
-        if (!tryPlaceWord(grid, w)) {
+
+      for (const word of ordered) {
+        if (!tryPlaceWord(grid, word)) {
           allPlaced = false;
           break;
         }
       }
+
       if (allPlaced) {
-        for (let r = 0; r < currentSize; r++) {
-          for (let c = 0; c < currentSize; c++) {
+        for (let r = 0; r < currentSize; r += 1) {
+          for (let c = 0; c < currentSize; c += 1) {
             if (!grid[r][c]) {
-              grid[r][c] = String.fromCharCode(
-                65 + Math.floor(Math.random() * 26),
-              );
+              grid[r][c] = String.fromCharCode(65 + Math.floor(Math.random() * 26));
             }
           }
         }
         return grid;
       }
     }
+
     return null;
   };
 
-  // Tenta com o tamanho solicitado e cresce até +3 se falhar
-  for (let grow = 0; grow <= 3; grow++) {
+  for (let grow = 0; grow <= 3; grow += 1) {
     const grid = attemptSize(size + grow);
     if (grid) return grid;
   }
 
-  return null; // sinaliza falha após esgotar tentativas
+  return null;
 }
 
 export default function WordSearchGame({
@@ -91,112 +97,92 @@ export default function WordSearchGame({
   maxAttempts = 50,
   maxWords = null,
 }) {
-  const upperWords = useMemo(() => words.map((w) => w.toUpperCase()), [words]);
+  const upperWords = useMemo(() => words.map((word) => word.toUpperCase()), [words]);
   const computedSize = useMemo(() => {
-    const longest = upperWords.reduce((acc, w) => Math.max(acc, w.length), 0);
+    const longest = upperWords.reduce((acc, word) => Math.max(acc, word.length), 0);
     return gridSize ?? Math.max(10, longest + 2);
   }, [upperWords, gridSize]);
 
   const wordsFitting = useMemo(() => {
-    const fitting = upperWords.filter((w) => w.length <= computedSize);
+    const fitting = upperWords.filter((word) => word.length <= computedSize);
     return maxWords ? fitting.slice(0, maxWords) : fitting;
   }, [upperWords, computedSize, maxWords]);
 
-  const [grid, setGrid] = useState(() =>
-    generateGrid(wordsFitting, computedSize, maxAttempts),
-  );
+  const [grid, setGrid] = useState(() => generateGrid(wordsFitting, computedSize, maxAttempts));
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState([]);
+  const [direction, setDirection] = useState(null);
   const [found, setFound] = useState(new Set());
   const [foundCells, setFoundCells] = useState(new Set());
-  const [direction, setDirection] = useState(null);
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
   const [finished, setFinished] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [reported, setReported] = useState(false);
-  const [errors, setErrors] = useState(0);
+  const [sessionErrors, setSessionErrors] = useState(0);
   const [generationFailed, setGenerationFailed] = useState(false);
+
   const noWords = wordsFitting.length === 0;
   const gridCols = grid?.[0]?.length ?? computedSize;
   const gridStyle = useMemo(() => ({ "--ws-cols": gridCols }), [gridCols]);
 
   const reset = useCallback(() => {
-    const newGrid = noWords
-      ? null
-      : generateGrid(wordsFitting, computedSize, maxAttempts);
+    const newGrid = noWords ? null : generateGrid(wordsFitting, computedSize, maxAttempts);
     setGenerationFailed(!noWords && newGrid === null);
     setGrid(newGrid);
     setSelecting(false);
     setSelected([]);
+    setDirection(null);
     setFound(new Set());
     setFoundCells(new Set());
-    setDirection(null);
     setTimeLeft(timeLimitSeconds);
     setFinished(noWords || newGrid === null);
     setTimedOut(false);
     setReported(false);
-    setErrors(0);
-  }, [wordsFitting, timeLimitSeconds, noWords, computedSize, maxAttempts]);
+    setSessionErrors(0);
+  }, [noWords, wordsFitting, computedSize, maxAttempts, timeLimitSeconds]);
 
   useEffect(() => {
     reset();
   }, [reset]);
 
   useEffect(() => {
-    if (finished) return undefined;
-    if (noWords || generationFailed) return undefined;
+    if (finished || noWords || generationFailed) return undefined;
+
     const id = setInterval(() => {
-      setTimeLeft((t) => {
-        if (t <= 1) {
-          setFinished(true);
+      setTimeLeft((current) => {
+        if (current <= 1) {
           setTimedOut(true);
+          setFinished(true);
           return 0;
         }
-        return t - 1;
+        return current - 1;
       });
     }, 1000);
+
     return () => clearInterval(id);
   }, [finished, noWords, generationFailed]);
 
   useEffect(() => {
-    if (noWords || generationFailed) return;
-    if (found.size === wordsFitting.length && !finished) {
+    if (finished || noWords || generationFailed) return;
+    if (found.size === wordsFitting.length && wordsFitting.length > 0) {
       setFinished(true);
     }
-  }, [found, wordsFitting.length, finished, noWords, generationFailed]);
+  }, [finished, found, wordsFitting.length, noWords, generationFailed]);
 
   useEffect(() => {
-    if ((noWords || generationFailed) && !reported) {
-      onScore?.({
-        game: "Caça-palavras",
-        score: errors,
-        elapsedMs: 0,
-        timedOut: true,
-      });
-      setReported(true);
-      return;
-    }
-    if (finished && !reported) {
-      const elapsedMs = Math.max(0, (timeLimitSeconds - timeLeft) * 1000);
-      onScore?.({
-        game: "Caça-palavras",
-        score: errors,
-        elapsedMs,
-        timedOut,
-      });
-      setReported(true);
-    }
-  }, [
-    finished,
-    reported,
-    onScore,
-    errors,
-    timeLimitSeconds,
-    timeLeft,
-    timedOut,
-    noWords,
-    generationFailed,
-  ]);
+    if (!finished || reported) return;
+
+    const partialPoints = calcularPontos(found.size, wordsFitting.length || 1);
+    onScore?.({
+      game: "Caça-palavras",
+      score: partialPoints,
+      points: partialPoints,
+      errors: sessionErrors,
+      remainingSeconds: timedOut ? 0 : timeLeft,
+      timedOut: timedOut || noWords || generationFailed,
+    });
+    setReported(true);
+  }, [finished, reported, onScore, found.size, wordsFitting.length, sessionErrors, timeLeft, timedOut, noWords, generationFailed]);
 
   const beginSelect = (row, col) => {
     if (finished || noWords || generationFailed) return;
@@ -207,8 +193,7 @@ export default function WordSearchGame({
 
   const extendSelect = (row, col) => {
     if (!selecting || finished || noWords || generationFailed) return;
-    const exists = selected.some((c) => c.row === row && c.col === col);
-    if (exists) return;
+    if (selected.some((cell) => cell.row === row && cell.col === col)) return;
 
     const last = selected[selected.length - 1];
 
@@ -219,7 +204,7 @@ export default function WordSearchGame({
         (dr === 0 && Math.abs(dc) === 1) || (dc === 0 && Math.abs(dr) === 1);
       if (!straight) return;
       setDirection({ dr: Math.sign(dr), dc: Math.sign(dc) });
-      setSelected((prev) => [...prev, { row, col }]);
+      setSelected((current) => [...current, { row, col }]);
       return;
     }
 
@@ -227,31 +212,34 @@ export default function WordSearchGame({
     const nextCol = last.col + direction.dc;
     if (row !== nextRow || col !== nextCol) return;
 
-    setSelected((prev) => [...prev, { row, col }]);
+    setSelected((current) => [...current, { row, col }]);
   };
 
   const finishSelect = () => {
     if (!selecting || finished || noWords || generationFailed) return;
-    const letters = selected.map((c) => grid[c.row][c.col]).join("");
+
+    const letters = selected.map((cell) => grid[cell.row][cell.col]).join("");
     const reverse = letters.split("").reverse().join("");
-    const matchWord = wordsFitting.find((w) => w === letters || w === reverse);
+    const matchWord = wordsFitting.find((word) => word === letters || word === reverse);
+
     if (matchWord && !found.has(matchWord)) {
       const nextFound = new Set(found);
       nextFound.add(matchWord);
       setFound(nextFound);
+
       const nextCells = new Set(foundCells);
-      selected.forEach((c) => nextCells.add(`${c.row}-${c.col}`));
+      selected.forEach((cell) => nextCells.add(`${cell.row}-${cell.col}`));
       setFoundCells(nextCells);
     } else if (!matchWord) {
-      setErrors((prev) => prev + 1);
+      setSessionErrors((current) => current + 1);
     }
+
     setSelecting(false);
     setSelected([]);
     setDirection(null);
   };
 
-  const isSelected = (row, col) =>
-    selected.some((c) => c.row === row && c.col === col);
+  const isSelected = (row, col) => selected.some((cell) => cell.row === row && cell.col === col);
   const isFound = (row, col) => foundCells.has(`${row}-${col}`);
 
   return (
@@ -262,10 +250,9 @@ export default function WordSearchGame({
           <h2>Encontre todas as palavras</h2>
         </div>
         <span className="pill">Tempo: {timeLeft}s</span>
-        <span className="pill">Erros: {errors}</span>
-        <span className="pill">
-          {found.size}/{wordsFitting.length} achadas
-        </span>
+        <span className="pill">Pontos: {calcularPontos(found.size, wordsFitting.length || 1)}</span>
+        <span className="pill">Erros: {sessionErrors}</span>
+        <span className="pill">{found.size}/{wordsFitting.length} achadas</span>
       </div>
 
       {!noWords && !generationFailed && grid ? (
@@ -275,6 +262,7 @@ export default function WordSearchGame({
               {row.map((cell, cIdx) => {
                 const selectedClass = isSelected(rIdx, cIdx) ? "selected" : "";
                 const foundClass = isFound(rIdx, cIdx) ? "found" : "";
+
                 return (
                   <button
                     key={`${rIdx}-${cIdx}`}
@@ -292,11 +280,7 @@ export default function WordSearchGame({
         </div>
       ) : (
         <div className="result-box" aria-live="polite">
-          <p>
-            {noWords
-              ? "Sem palavras para jogar."
-              : "Não foi possível gerar a grade."}
-          </p>
+          <p>{noWords ? "Sem palavras para jogar." : "Não foi possível gerar a grade."}</p>
           <button className="primary" onClick={reset}>
             Tentar novamente
           </button>
@@ -305,10 +289,7 @@ export default function WordSearchGame({
 
       <div className="ws-words">
         {wordsFitting.map((word) => (
-          <span
-            key={word}
-            className={`word-chip ${found.has(word) ? "done" : ""}`}
-          >
+          <span key={word} className={`word-chip ${found.has(word) ? "done" : ""}`}>
             {word}
           </span>
         ))}
@@ -318,8 +299,7 @@ export default function WordSearchGame({
         <div className="result-box" aria-live="polite">
           <p>{timedOut ? "Tempo esgotado" : "Concluído"}</p>
           <p>
-            {found.size}/{wordsFitting.length} palavras | Erros: {errors} |
-            Tempo: {timeLimitSeconds - timeLeft}s
+            Pontos: {calcularPontos(found.size, wordsFitting.length || 1)} | Erros: {sessionErrors}
           </p>
           {ranking.length > 0 && (
             <div className="mini-ranking">
@@ -327,8 +307,8 @@ export default function WordSearchGame({
               {ranking.slice(0, 5).map((row) => (
                 <div key={row.id} className="mini-row">
                   <span>{row.name}</span>
-                  <span>{row.score} erros</span>
-                  <span>{Math.round((row.elapsedMs ?? 0) / 1000)}s</span>
+                  <span>{row.totalPoints ?? 0} pts</span>
+                  <span>{row.totalErrors ?? 0} erros</span>
                 </div>
               ))}
             </div>

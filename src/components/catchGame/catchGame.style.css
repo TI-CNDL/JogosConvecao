@@ -1,0 +1,46 @@
+.catch-game {
+    position: relative;
+    overflow: hidden;
+    background: #000;
+    border: 1px solid #1f2937;
+    border-radius: 16px;
+    padding: 12px;
+}
+
+.catch-stage {
+    position: relative;
+    width: 100%;
+    height: 520px;
+    border-radius: 12px;
+    border: 1px solid #1f2937;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    background:
+        linear-gradient(rgba(0, 0, 0, 0.92), rgba(0, 0, 0, 0.92)),
+        linear-gradient(90deg, rgba(246, 0, 133, 0.11) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(246, 0, 133, 0.11) 1px, transparent 1px);
+    background-size: 100% 100%, 36px 36px, 36px 36px;
+}
+
+.catch-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.catch-instructions {
+    margin-top: 10px;
+    color: #cbd5e1;
+    font-size: 14px;
+}
+
+.catch-instructions strong {
+    color: #fedc50;
+}
+
+@media (max-width: 720px) {
+    .catch-stage {
+        height: 420px;
+    }
+}

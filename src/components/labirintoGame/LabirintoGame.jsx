@@ -15,6 +15,11 @@ const MIN_GAP_STEPS = 4;
 const MAX_GAP_STEPS = 6;
 const DEFAULT_GRID_SIZE = 8;
 
+const calcularPontos = (parcial, total) => {
+  if (!total || total <= 0) return 0;
+  return Math.floor((Math.max(0, parcial) / total) * 100);
+};
+
 const DELTAS = [
   { dr: -1, dc: 0 },
   { dr: 1, dc: 0 },
@@ -335,7 +340,8 @@ export default function LabirintoGame({
   const [trailSet, setTrailSet] = useState(new Set());
   const [matchedCheckpointKeys, setMatchedCheckpointKeys] = useState([]);
   const [dragging, setDragging] = useState(false);
-  const [errors, setErrors] = useState(0);
+  const [roundErrors, setRoundErrors] = useState(0);
+  const [sessionErrors, setSessionErrors] = useState(0);
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
   const [finished, setFinished] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
@@ -379,7 +385,8 @@ export default function LabirintoGame({
     setTrailSet(new Set());
     setMatchedCheckpointKeys([]);
     setDragging(false);
-    setErrors(0);
+    setRoundErrors(0);
+    setSessionErrors(0);
     setTimeLeft(timeLimitSeconds);
     setFinished(false);
     setTimedOut(false);
@@ -398,7 +405,8 @@ export default function LabirintoGame({
     setTrailSet(new Set());
     setMatchedCheckpointKeys([]);
     setDragging(false);
-    setErrors(0);
+    setRoundErrors(0);
+    setSessionErrors(0);
     setTimeLeft(timeLimitSeconds);
     setFinished(false);
     setTimedOut(false);
@@ -423,17 +431,20 @@ export default function LabirintoGame({
 
   useEffect(() => {
     if (word && progress === word.length - 1 && !finished) {
+      setSessionErrors((prev) => prev + roundErrors);
       setFinished(true);
     }
-  }, [progress, word, finished]);
+  }, [progress, word, finished, roundErrors, words, boardGridSize]);
 
   useEffect(() => {
     if (finished && !reported) {
-      const elapsedMs = Math.max(0, (timeLimitSeconds - timeLeft) * 1000);
+      const partialPoints = calcularPontos(progress + 1, word.length || 1);
       onScore?.({
         game: "Labirinto",
-        score: errors,
-        elapsedMs,
+        score: partialPoints,
+        points: partialPoints,
+        errors: sessionErrors + roundErrors,
+        remainingSeconds: timeLeft,
         timedOut,
       });
       setReported(true);
@@ -442,8 +453,10 @@ export default function LabirintoGame({
     finished,
     reported,
     onScore,
-    errors,
-    timeLimitSeconds,
+    progress,
+    word,
+    sessionErrors,
+    roundErrors,
     timeLeft,
     timedOut,
   ]);
@@ -456,7 +469,7 @@ export default function LabirintoGame({
       const isCheckpoint = checkpointMap.has(key);
       const isValidFirstLetter = grid[r]?.[c]?.letter === word[0];
       if (!isCheckpoint || !isValidFirstLetter) {
-        setErrors((prev) => prev + 1);
+        setRoundErrors((prev) => prev + 1);
         return;
       }
       const nextTrail = [{ r, c }];
@@ -499,11 +512,11 @@ export default function LabirintoGame({
 
     if (!areAdjacent(from, to)) return;
     if (blockedEdges.has(edgeKey(from, to))) {
-      setErrors((prev) => prev + 1);
+      setRoundErrors((prev) => prev + 1);
       return;
     }
     if (trailSet.has(toKey)) {
-      setErrors((prev) => prev + 1);
+      setRoundErrors((prev) => prev + 1);
       return;
     }
 
@@ -684,7 +697,10 @@ export default function LabirintoGame({
           <h2>{finished ? "Resultado" : "Forme a palavra no caminho"}</h2>
         </div>
         <span className="pill">Tempo: {timeLeft}s</span>
-        <span className="pill">Erros: {errors}</span>
+        <span className="pill">
+          Pontos: {calcularPontos(progress + 1, word.length || 1)}
+        </span>
+        <span className="pill">Erros: {sessionErrors + roundErrors}</span>
       </div>
 
       <div className="word-progress" aria-label="Letras ja passadas">
@@ -820,7 +836,7 @@ export default function LabirintoGame({
         <div className="result-box" aria-live="polite">
           <p>{timedOut ? "Tempo esgotado" : `Palavra ${word} concluida`}</p>
           <p>
-            Erros: {errors} | Tempo: {timeLimitSeconds - timeLeft}s
+            Pontos: {calcularPontos(progress + 1, word.length || 1)} | Erros: {sessionErrors + roundErrors}
           </p>
           {ranking.length > 0 && (
             <div className="mini-ranking">
@@ -828,8 +844,8 @@ export default function LabirintoGame({
               {ranking.slice(0, 5).map((row) => (
                 <div key={row.id} className="mini-row">
                   <span>{row.name}</span>
-                  <span>{row.score} erros</span>
-                  <span>{Math.round((row.elapsedMs ?? 0) / 1000)}s</span>
+                  <span>{row.totalPoints ?? 0} pts</span>
+                  <span>{row.totalErrors ?? 0} erros</span>
                 </div>
               ))}
             </div>

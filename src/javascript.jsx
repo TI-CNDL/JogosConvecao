@@ -5,6 +5,7 @@ import HangmanGame from "./components/hangmanGame/HangmanGame.jsx";
 import WordSearchGame from "./components/wordSearchGame/WordSearchGame.jsx";
 import LabirintoGame from "./components/labirintoGame/LabirintoGame.jsx";
 import SoletraGame from "./components/soletraGame/SoletraGame.jsx";
+import CatchGame from "./components/catchGame/CatchGame.jsx";
 import PlayerForm from "./components/playerForm/PlayerForm.jsx";
 import MenuGrid from "./components/menuGrid/MenuGrid.jsx";
 import RankingTable from "./components/rankingTable/RankingTable.jsx";
@@ -17,6 +18,7 @@ const games = [
   { id: "quiz", title: "Quiz", description: "3 perguntas rápidas." },
   { id: "labirinto", title: "Labirinto", description: "Ache a saída." },
   { id: "soletra", title: "Soletra", description: "Forme palavras." },
+  { id: "catch", title: "Cesta de Ofertas", description: "Colete bons itens." },
 ];
 
 const gameLabels = {
@@ -26,6 +28,7 @@ const gameLabels = {
   quiz: "Quiz",
   labirinto: "Labirinto",
   soletra: "Soletra",
+  catch: "Cesta de Ofertas",
 };
 
 const memorySymbols = [
@@ -299,6 +302,7 @@ const defaultTimeLimits = {
   quiz: 120,
   labirinto: 120,
   soletra: 120,
+  catch: 120,
 };
 
 const defaultPairs = {
@@ -316,6 +320,7 @@ const defaultQuizCounts = {
 
 const storageKeys = {
   player: "player",
+  leads: "leads",
   settings: "settings",
   session: "session",
   ranking: "ranking",
@@ -328,6 +333,12 @@ const safeParse = (value, fallback) => {
   } catch {
     return fallback;
   }
+};
+
+const normalizePhone = (value) => (value || "").replace(/\D/g, "");
+const calcularPontos = (parcial, total) => {
+  if (!total || total <= 0) return 0;
+  return Math.floor((Math.max(0, parcial) / total) * 100);
 };
 
 const gameComponents = {
@@ -355,6 +366,7 @@ const gameComponents = {
   ),
   labirinto: (props) => <LabirintoGame words={labirintoWords} {...props} />,
   soletra: (props) => <SoletraGame roundData={soletraRoundData} {...props} />,
+  catch: (props) => <CatchGame {...props} />,
 };
 
 export function App() {
@@ -363,11 +375,14 @@ export function App() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [ranking, setRanking] = useState([]);
+  const [leadsByPhone, setLeadsByPhone] = useState({});
   const [timeLimits, setTimeLimits] = useState(defaultTimeLimits);
   const [pairsLimits, setPairsLimits] = useState(defaultPairs);
   const [gridSizes, setGridSizes] = useState(defaultGridSizes);
   const [quizQuestionLimits, setQuizQuestionLimits] =
     useState(defaultQuizCounts);
+
+    const effectiveTimeLimit = (gameId) => Math.min(timeLimits[gameId] ?? 30, 30);
 
   useEffect(() => {
     const storedPlayer = safeParse(
@@ -399,27 +414,67 @@ export function App() {
     );
     if (storedSession.selectedGame) setSelectedGame(storedSession.selectedGame);
     if (storedSession.screen) setScreen(storedSession.screen);
+
+    const storedLeads = safeParse(localStorage.getItem(storageKeys.leads), {});
+    if (storedLeads && typeof storedLeads === "object") {
+      setLeadsByPhone(storedLeads);
+    }
+
+    const storedRanking = safeParse(
+      localStorage.getItem(storageKeys.ranking),
+      [],
+    );
+    if (Array.isArray(storedRanking)) {
+      setRanking(storedRanking);
+    }
   }, []);
-  const canPlay = name.trim().length > 1 && phone.trim().length >= 8;
+  const normalizedPhone = normalizePhone(phone);
+  const knownLead = normalizedPhone ? leadsByPhone[normalizedPhone] : null;
+  const isKnownPhone = Boolean(knownLead);
+  const canPlay =
+    normalizedPhone.length >= 10 && (isKnownPhone || name.trim().length > 1);
   const ActiveGame = gameComponents[selectedGame];
   const selectedMeta = games.find((g) => g.id === selectedGame);
-  const currentGameLabel = selectedGame ? gameLabels[selectedGame] : null;
-  const sortRanking = (rows) =>
+  const sortByMetrics = (rows, getPoints, getErrors) =>
     [...rows].sort((a, b) => {
-      if (a.score !== b.score) return a.score - b.score;
-      const aTime = a.elapsedMs ?? Number.POSITIVE_INFINITY;
-      const bTime = b.elapsedMs ?? Number.POSITIVE_INFINITY;
-      return aTime - bTime;
+      const aPoints = Number(getPoints(a) || 0);
+      const bPoints = Number(getPoints(b) || 0);
+      if (bPoints !== aPoints) {
+        return bPoints - aPoints;
+      }
+
+      const aErrors = Number(getErrors(a) || 0);
+      const bErrors = Number(getErrors(b) || 0);
+      if (aErrors !== bErrors) {
+        return aErrors - bErrors;
+      }
+
+      return (a.name ?? "").localeCompare(b.name ?? "");
     });
 
-  const currentGameRanking = currentGameLabel
-    ? sortRanking(ranking.filter((row) => row.game === currentGameLabel))
+  const sortRanking = (rows) =>
+    sortByMetrics(
+      rows,
+      (row) => row.totalPoints ?? 0,
+      (row) => row.totalErrors ?? 0,
+    );
+
+  const currentGameRanking = selectedGame
+    ? sortByMetrics(
+        ranking,
+        (row) => row.perGame?.[selectedGame]?.points ?? 0,
+        (row) => row.perGame?.[selectedGame]?.errors ?? 0,
+      )
+        .map((row) => ({
+          ...row,
+          totalPoints: row.perGame?.[selectedGame]?.points ?? 0,
+          totalErrors: row.perGame?.[selectedGame]?.errors ?? 0,
+        }))
+        .filter((row) => row.totalPoints !== 0 || row.totalErrors !== 0)
+        .slice(0, 10)
     : [];
 
-  const mainMenuRanking = games
-    .map((game) => gameLabels[game.id])
-    .map((label) => sortRanking(ranking.filter((row) => row.game === label))[0])
-    .filter(Boolean);
+  const mainMenuRanking = sortRanking(ranking).slice(0, 10);
 
   useEffect(() => {
     try {
@@ -428,6 +483,14 @@ export function App() {
       // ignore persist errors
     }
   }, [name, phone]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKeys.leads, JSON.stringify(leadsByPhone));
+    } catch {
+      // ignore persist errors
+    }
+  }, [leadsByPhone]);
 
   useEffect(() => {
     try {
@@ -490,25 +553,46 @@ export function App() {
     setQuizQuestionLimits((prev) => ({ ...prev, [gameId]: valueLimit }));
   };
 
-  const handleScore = ({ game, score, elapsedMs, timedOut }) => {
-    if (!name || !phone) return;
-    const entry = {
-      id: crypto.randomUUID
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random()}`,
-      name,
-      phone,
-      game,
-      score,
-      elapsedMs,
-      timedOut: Boolean(timedOut),
-      time: new Date().toISOString(),
-    };
+  const handleScore = ({
+    points = 0,
+    errors = 0,
+    remainingSeconds = 0,
+    timedOut = false,
+  }) => {
+    const gameId = selectedGame;
+    const phoneKey = normalizedPhone;
+    const playerName = isKnownPhone ? knownLead.name : name;
+    if (!phoneKey || !playerName || !gameId) return;
+
+    const timeBonus = timedOut ? 0 : Math.max(0, Number(remainingSeconds || 0)) * 5;
+    const totalPoints = Number(points || 0) + timeBonus;
+
     setRanking((prev) => {
-      const sameGame = prev.filter((row) => row.game === game);
-      const otherGames = prev.filter((row) => row.game !== game);
-      const nextGameList = sortRanking([entry, ...sameGame]).slice(0, 10);
-      const next = sortRanking([...otherGames, ...nextGameList]);
+      const current = prev.find((row) => row.phone === phoneKey);
+      const nextPerGame = {
+        ...(current?.perGame ?? {}),
+        [gameId]: {
+          points: (current?.perGame?.[gameId]?.points ?? 0) + totalPoints,
+          errors:
+            (current?.perGame?.[gameId]?.errors ?? 0) + Math.max(0, errors),
+        },
+      };
+
+      const nextEntry = {
+        id:
+          current?.id ??
+          (crypto.randomUUID
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random()}`),
+        name: playerName,
+        phone: phoneKey,
+        totalPoints: (current?.totalPoints ?? 0) + totalPoints,
+        totalErrors: (current?.totalErrors ?? 0) + Math.max(0, errors),
+        perGame: nextPerGame,
+      };
+
+      const withoutCurrent = prev.filter((row) => row.phone !== phoneKey);
+      const next = sortRanking([...withoutCurrent, nextEntry]);
       try {
         localStorage.setItem(storageKeys.ranking, JSON.stringify(next));
       } catch {
@@ -520,29 +604,51 @@ export function App() {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(storageKeys.ranking);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setRanking(sortRanking(parsed));
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
       localStorage.setItem(storageKeys.ranking, JSON.stringify(ranking));
     } catch {
       // ignore persist errors
     }
   }, [ranking]);
 
+  useEffect(() => {
+    if (
+      screen === "identify" &&
+      selectedGame &&
+      normalizedPhone.length >= 10 &&
+      isKnownPhone
+    ) {
+      setScreen("play");
+    }
+  }, [screen, selectedGame, normalizedPhone, isKnownPhone]);
+
   const startGame = () => {
     if (!canPlay || !selectedGame) return;
+
+    if (!isKnownPhone) {
+      const phoneKey = normalizePhone(phone);
+      setLeadsByPhone((prev) => ({
+        ...prev,
+        [phoneKey]: {
+          name: name.trim(),
+          phone: phoneKey,
+        },
+      }));
+    } else if (knownLead?.name && name !== knownLead.name) {
+      setName(knownLead.name);
+    }
+
     setScreen("play");
+  };
+
+  const handlePhoneChange = (value) => {
+    setPhone(value);
+    const normalized = normalizePhone(value);
+    const existing = normalized ? leadsByPhone[normalized] : null;
+    if (existing?.name) {
+      setName(existing.name);
+    } else {
+      setName("");
+    }
   };
 
   return (
@@ -586,8 +692,9 @@ export function App() {
                 name={name}
                 phone={phone}
                 onNameChange={setName}
-                onPhoneChange={setPhone}
+                onPhoneChange={handlePhoneChange}
                 canPlay={canPlay}
+                isKnownPhone={isKnownPhone}
               />
               <button
                 className="primary"
@@ -608,7 +715,7 @@ export function App() {
           {ActiveGame ? (
             <ActiveGame
               onScore={handleScore}
-              timeLimitSeconds={timeLimits[selectedGame]}
+              timeLimitSeconds={effectiveTimeLimit(selectedGame)}
               ranking={currentGameRanking}
               pairCount={pairsLimits[selectedGame]}
               gridSize={gridSizes[selectedGame]}
