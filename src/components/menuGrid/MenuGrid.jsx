@@ -63,6 +63,23 @@ export default function MenuGrid({
               </select>
             </label>
           )}
+          {game.id === "labirinto" && (
+            <label className="time-field">
+              <span>Tamanho do labirinto</span>
+              <select
+                value={gridSizes?.[game.id] ?? 8}
+                onChange={(e) =>
+                  onGridSizeChange(game.id, Number(e.target.value))
+                }
+              >
+                {[4, 8, 10].map((val) => (
+                  <option key={val} value={val}>
+                    {val} x {val}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {game.id === "quiz" && (
             <label className="time-field">
               <span>Qtd. de perguntas</span>

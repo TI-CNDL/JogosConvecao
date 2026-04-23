@@ -3,6 +3,8 @@ import MemoryGame from "./components/memoryGame/MemoryGame.jsx";
 import QuizGame from "./components/quizGame/QuizGame.jsx";
 import HangmanGame from "./components/hangmanGame/HangmanGame.jsx";
 import WordSearchGame from "./components/wordSearchGame/WordSearchGame.jsx";
+import LabirintoGame from "./components/labirintoGame/LabirintoGame.jsx";
+import SoletraGame from "./components/soletraGame/SoletraGame.jsx";
 import PlayerForm from "./components/playerForm/PlayerForm.jsx";
 import MenuGrid from "./components/menuGrid/MenuGrid.jsx";
 import RankingTable from "./components/rankingTable/RankingTable.jsx";
@@ -13,6 +15,8 @@ const games = [
   { id: "wordsearch", title: "Caça-palavras", description: "Encontre todos." },
   { id: "hangman", title: "Forca", description: "Descubra a palavra." },
   { id: "quiz", title: "Quiz", description: "3 perguntas rápidas." },
+  { id: "labirinto", title: "Labirinto", description: "Ache a saída." },
+  { id: "soletra", title: "Soletra", description: "Forme palavras." },
 ];
 
 const gameLabels = {
@@ -20,6 +24,8 @@ const gameLabels = {
   wordsearch: "Caça-palavras",
   hangman: "Forca",
   quiz: "Quiz",
+  labirinto: "Labirinto",
+  soletra: "Soletra",
 };
 
 const memorySymbols = [
@@ -71,6 +77,21 @@ const memorySymbols = [
   "TAMBAU",
   "CABOBRANCO",
   "BESSA",
+];
+const labirintoWords = [
+  "LOJA",
+  "PIX",
+  "SKU",
+  "PDV",
+  "FILA",
+  "CAIXA",
+  "TOUCH",
+  "JOGAR",
+  "VAREJO",
+  "PAINEL",
+  "ENTREGA",
+  "ESTOQUE",
+  "JARDINEIRO",
 ];
 const quizQuestions = [
   {
@@ -170,6 +191,8 @@ const defaultTimeLimits = {
   wordsearch: 150,
   hangman: 150,
   quiz: 120,
+  labirinto: 120,
+  soletra: 120,
 };
 
 const defaultPairs = {
@@ -178,6 +201,7 @@ const defaultPairs = {
 
 const defaultGridSizes = {
   wordsearch: 10,
+  labirinto: 8,
 };
 
 const defaultQuizCounts = {
@@ -223,6 +247,8 @@ const gameComponents = {
       {...props}
     />
   ),
+  labirinto: (props) => <LabirintoGame words={labirintoWords} {...props} />,
+  soletra: (props) => <SoletraGame {...props} />,
 };
 
 export function App() {

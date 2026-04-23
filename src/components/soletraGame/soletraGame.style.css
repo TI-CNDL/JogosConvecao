@@ -1,0 +1,79 @@
+.soletra {
+    gap: 14px;
+}
+
+.soletra-word {
+    min-height: 60px;
+    border: 1px solid #1f2937;
+    background: #0b1220;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+
+.soletra-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.letter-btn {
+    width: 100%;
+    min-height: 64px;
+    border-radius: 999px;
+    font-size: 26px;
+    font-weight: 800;
+    background: #1f2937;
+    color: #e2e8f0;
+}
+
+.letter-btn.center {
+    background: #14b8a6;
+    color: #042f2e;
+}
+
+.soletra-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.soletra-actions button {
+    width: 100%;
+}
+
+.soletra-found {
+    gap: 10px;
+}
+
+.found-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.found-item {
+    padding: 8px 12px;
+    border: 1px solid #1f2937;
+    border-radius: 999px;
+    background: #0b1220;
+    font-weight: 700;
+}
+
+@media (max-width: 720px) {
+    .soletra-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .letter-btn {
+        min-height: 58px;
+        font-size: 24px;
+    }
+
+    .soletra-actions {
+        grid-template-columns: 1fr;
+    }
+}

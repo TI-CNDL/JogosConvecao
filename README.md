@@ -15,6 +15,8 @@ Aplicação web para totem touch com minijogos de convenção em React + Vite.
 - Caça-palavras
 - Forca
 - Quiz
+- Labirinto
+- Soletra
 
 ## Regras de pontuação
 
