@@ -89,7 +89,7 @@ const getLetterColors = (userWord, targetWord) => {
       colors.push("wrong");
     }
   }
-  
+
   return colors;
 };
 
@@ -99,7 +99,9 @@ export default function SoletraGame({
   ranking = [],
   roundData = DEFAULT_ROUND_DATA,
 }) {
-  const [activeRound, setActiveRound] = useState(() => pickRoundFromData(roundData));
+  const [activeRound, setActiveRound] = useState(() =>
+    pickRoundFromData(roundData),
+  );
 
   const letterPool = activeRound.letters;
   const targets = activeRound.targets;
@@ -166,7 +168,11 @@ export default function SoletraGame({
   }, [finished]);
 
   useEffect(() => {
-    if (targets.length > 0 && foundIndexes.size === targets.length && !finished) {
+    if (
+      targets.length > 0 &&
+      foundIndexes.size === targets.length &&
+      !finished
+    ) {
       setFinished(true);
     }
   }, [foundIndexes, targets, finished]);
@@ -319,13 +325,20 @@ export default function SoletraGame({
 
           return (
             <div key={`${target.palavra}-${idx}`} className="target-row">
-              <div className={`target-slot ${solved ? "solved" : ""} ${isLocked ? "locked" : ""}`}>
+              <div
+                className={`target-slot ${solved ? "solved" : ""} ${isLocked ? "locked" : ""}`}
+              >
                 {display}
               </div>
               <button
                 className="hint-btn"
                 onClick={() => useHint(idx)}
-                disabled={finished || solved || hintLevel >= MAX_HINTS_PER_WORD || isLocked}
+                disabled={
+                  finished ||
+                  solved ||
+                  hintLevel >= MAX_HINTS_PER_WORD ||
+                  isLocked
+                }
                 aria-label={`Dica da palavra ${idx + 1}`}
                 title={isLocked ? `Resolva a palavra ${idx} primeiro` : ""}
               >
@@ -348,11 +361,15 @@ export default function SoletraGame({
       <div
         className="soletra-input"
         aria-label="Letras digitadas"
-        style={{ gridTemplateColumns: `repeat(${activeWordLength}, minmax(0, 1fr))` }}
+        style={{
+          gridTemplateColumns: `repeat(${activeWordLength}, minmax(0, 1fr))`,
+        }}
       >
         {Array.from({ length: activeWordLength }).map((_, idx) => {
           const letter = typedChars[idx];
-          const colorClass = lastAttemptColors ? lastAttemptColors[idx] || "" : "";
+          const colorClass = lastAttemptColors
+            ? lastAttemptColors[idx] || ""
+            : "";
           return (
             <div key={`slot-${idx}`} className={`input-slot ${colorClass}`}>
               {letter ?? ""}
@@ -362,25 +379,53 @@ export default function SoletraGame({
       </div>
 
       <div className="honeycomb" role="group" aria-label="Colmeia de letras">
-        <button className="hex-btn top" onClick={() => pushLetter(honey[0])} disabled={finished}>
+        <button
+          className="hex-btn top"
+          onClick={() => pushLetter(honey[0])}
+          disabled={finished}
+        >
           {honey[0]}
         </button>
-        <button className="hex-btn top-right" onClick={() => pushLetter(honey[1])} disabled={finished}>
+        <button
+          className="hex-btn top-right"
+          onClick={() => pushLetter(honey[1])}
+          disabled={finished}
+        >
           {honey[1]}
         </button>
-        <button className="hex-btn right" onClick={() => pushLetter(honey[2])} disabled={finished}>
+        <button
+          className="hex-btn right"
+          onClick={() => pushLetter(honey[2])}
+          disabled={finished}
+        >
           {honey[2]}
         </button>
-        <button className="hex-btn bottom" onClick={() => pushLetter(honey[3])} disabled={finished}>
+        <button
+          className="hex-btn bottom"
+          onClick={() => pushLetter(honey[3])}
+          disabled={finished}
+        >
           {honey[3]}
         </button>
-        <button className="hex-btn bottom-left" onClick={() => pushLetter(honey[4])} disabled={finished}>
+        <button
+          className="hex-btn bottom-left"
+          onClick={() => pushLetter(honey[4])}
+          disabled={finished}
+        >
           {honey[4]}
         </button>
-        <button className="hex-btn left" onClick={() => pushLetter(honey[5])} disabled={finished}>
+        <button
+          className="hex-btn left"
+          onClick={() => pushLetter(honey[5])}
+          disabled={finished}
+        >
           {honey[5]}
         </button>
-        <button className="hex-btn center" onClick={() => pushLetter(honey[6])} disabled={finished}>
+        <button
+          className="hex-btn center"
+          onClick={() => pushLetter(honey[6])}
+          disabled={finished}
+        >
           {honey[6]}
         </button>
       </div>
@@ -400,7 +445,8 @@ export default function SoletraGame({
         <div className="result-box" aria-live="polite">
           <p>{timedOut ? "Tempo esgotado" : "Partida concluida"}</p>
           <p>
-            Erros: {errors} | Penalidade: +{hintPenaltySeconds}s | Tempo base: {timeLimitSeconds - timeLeft}s
+            Erros: {errors} | Penalidade: +{hintPenaltySeconds}s | Tempo base:{" "}
+            {timeLimitSeconds - timeLeft}s
           </p>
           {ranking.length > 0 && (
             <div className="mini-ranking">
