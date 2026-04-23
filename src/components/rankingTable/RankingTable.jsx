@@ -17,14 +17,12 @@ export default function RankingTable({ ranking = [] }) {
             <span>Nome</span>
             <span>Telefone</span>
             <span>Pontos</span>
-            <span>Erros</span>
           </div>
           {ranking.map((row) => (
             <div key={row.id} className="table-row">
               <span>{row.name}</span>
               <span>{row.phone}</span>
               <span>{row.totalPoints ?? 0}</span>
-              <span>{row.totalErrors ?? 0}</span>
             </div>
           ))}
         </div>

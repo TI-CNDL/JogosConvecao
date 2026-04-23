@@ -56,9 +56,7 @@ export default function QuizGame({
 
   const noQuestions = randomizedQuestions.length === 0;
   const [step, setStep] = useState(0);
-  const [roundErrors, setRoundErrors] = useState(0);
   const [roundCorrect, setRoundCorrect] = useState(0);
-  const [sessionErrors, setSessionErrors] = useState(0);
   const [finished, setFinished] = useState(noQuestions);
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
   const [timedOut, setTimedOut] = useState(false);
@@ -68,12 +66,9 @@ export default function QuizGame({
   useEffect(() => {
     // Reset completo ao mudar props
     setStep(0);
-    setRoundErrors(0);
     setRoundCorrect(0);
-    setSessionErrors(0);
     setFinished(noQuestions);
-    setTimeLeft(timeLimitSeconds);
-    setTimedOut(false);
+    (0, setTimedOut(false));
     setReported(false);
     setAnswersByStep({});
     setShuffleKey((k) => k + 1);
@@ -99,14 +94,13 @@ export default function QuizGame({
     if (finished && !reported) {
       const partialRoundPoints = calcularPontosQuiz(
         roundCorrect,
-        roundErrors,
+        0,
         randomizedQuestions.length || 1,
       );
       onScore?.({
         game: "Quiz",
         score: partialRoundPoints,
         points: partialRoundPoints,
-        errors: sessionErrors + roundErrors,
         remainingSeconds: timeLeft,
         timedOut: timedOut || noQuestions,
       });
@@ -117,9 +111,7 @@ export default function QuizGame({
     reported,
     onScore,
     roundCorrect,
-    roundErrors,
     randomizedQuestions.length,
-    sessionErrors,
     timeLeft,
     timedOut,
     noQuestions,
@@ -131,15 +123,12 @@ export default function QuizGame({
     if (finished || noQuestions || !current) return;
     setAnswersByStep((prev) => ({ ...prev, [step]: option }));
     const correct = option === current.answer;
-    const nextRoundErrors = roundErrors + (correct ? 0 : 1);
     const nextRoundCorrect = roundCorrect + (correct ? 1 : 0);
 
     if (correct) setRoundCorrect((prev) => prev + 1);
-    else setRoundErrors((prev) => prev + 1);
 
     const nextStep = step + 1;
     if (nextStep >= randomizedQuestions.length) {
-      setSessionErrors((prev) => prev + nextRoundErrors);
       setFinished(true);
     } else {
       setStep(nextStep);
@@ -148,9 +137,7 @@ export default function QuizGame({
 
   const reset = () => {
     setStep(0);
-    setRoundErrors(0);
     setRoundCorrect(0);
-    setSessionErrors(0);
     setFinished(noQuestions);
     setTimeLeft(timeLimitSeconds);
     setTimedOut(false);
@@ -169,13 +156,8 @@ export default function QuizGame({
         <span className="pill">Tempo: {timeLeft}s</span>
         <span className="pill">
           Pontos:{" "}
-          {calcularPontosQuiz(
-            roundCorrect,
-            roundErrors,
-            randomizedQuestions.length || 1,
-          )}
+          {calcularPontosQuiz(roundCorrect, 0, randomizedQuestions.length || 1)}
         </span>
-        <span className="pill">Erros: {sessionErrors + roundErrors}</span>
       </div>
       {finished ? (
         <div className="result-box" aria-live="polite">
@@ -190,11 +172,10 @@ export default function QuizGame({
             Pontos:{" "}
             {calcularPontosQuiz(
               roundCorrect,
-              roundErrors,
+              0,
               randomizedQuestions.length || 1,
             )}
           </h3>
-          <p>Erros: {sessionErrors + roundErrors}</p>
 
           {randomizedQuestions.length > 0 && (
             <div className="answer-key">
@@ -233,7 +214,6 @@ export default function QuizGame({
                 <div key={row.id} className="mini-row">
                   <span>{row.name}</span>
                   <span>{row.totalPoints ?? 0} pts</span>
-                  <span>{row.totalErrors ?? 0} erros</span>
                 </div>
               ))}
             </div>

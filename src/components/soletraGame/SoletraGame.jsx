@@ -118,8 +118,6 @@ export default function SoletraGame({
   const [typed, setTyped] = useState("");
   const [foundIndexes, setFoundIndexes] = useState(new Set());
   const [hintLevels, setHintLevels] = useState(buildHintLevels(targets.length));
-  const [roundErrors, setRoundErrors] = useState(0);
-  const [sessionErrors, setSessionErrors] = useState(0);
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
   const [finished, setFinished] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
@@ -142,8 +140,6 @@ export default function SoletraGame({
     setTyped("");
     setFoundIndexes(new Set());
     setHintLevels(buildHintLevels(nextRound.targets.length));
-    setRoundErrors(0);
-    setSessionErrors(0);
     setTimeLeft(timeLimitSeconds);
     setFinished(false);
     setTimedOut(false);
@@ -177,11 +173,10 @@ export default function SoletraGame({
       foundIndexes.size === targets.length &&
       !finished
     ) {
-      setSessionErrors((prev) => prev + roundErrors);
       setFinished(true);
       setFeedback("Palavras concluidas.");
     }
-  }, [foundIndexes, targets, finished, roundErrors, roundData]);
+  }, [foundIndexes, targets, finished, roundData]);
 
   useEffect(() => {
     if (finished && !reported) {
@@ -193,23 +188,12 @@ export default function SoletraGame({
         game: "Soletra",
         score: partialPoints,
         points: partialPoints,
-        errors: sessionErrors + roundErrors,
         remainingSeconds: timeLeft,
         timedOut,
       });
       setReported(true);
     }
-  }, [
-    finished,
-    reported,
-    onScore,
-    foundIndexes,
-    targets,
-    sessionErrors,
-    roundErrors,
-    timeLeft,
-    timedOut,
-  ]);
+  }, [finished, reported, onScore, foundIndexes, targets, timeLeft, timedOut]);
 
   const pushLetter = (letter) => {
     if (finished) return;
@@ -243,7 +227,6 @@ export default function SoletraGame({
     if (finished) return;
     const word = normalize(typed);
     if (!word) {
-      setRoundErrors((prev) => prev + 1);
       setFeedback("Digite uma palavra antes de enviar.");
       return;
     }
@@ -253,14 +236,12 @@ export default function SoletraGame({
       .every((letter) => letterPool.includes(letter));
 
     if (!isAllowedChars) {
-      setRoundErrors((prev) => prev + 1);
       setFeedback("A palavra usa letra que nao esta na colmeia.");
       setLastAttemptColors(null);
       return;
     }
 
     if (!currentTarget) {
-      setRoundErrors((prev) => prev + 1);
       setFeedback("Nenhuma palavra ativa para validar.");
       setLastAttemptColors(null);
       return;
@@ -269,14 +250,12 @@ export default function SoletraGame({
     const matchedIndex = targetByWord.get(word);
     if (matchedIndex !== undefined) {
       if (foundIndexes.has(matchedIndex)) {
-        setRoundErrors((prev) => prev + 1);
         setFeedback("Essa palavra ja foi encontrada.");
         setLastAttemptColors(null);
         return;
       }
 
       if (matchedIndex !== currentTargetIndex) {
-        setRoundErrors((prev) => prev + 1);
         setFeedback("Resolva a palavra atual antes da proxima.");
         setLastAttemptColors(getLetterColors(word, currentTarget.palavra));
         return;
@@ -294,7 +273,6 @@ export default function SoletraGame({
     setLastAttemptColors(colors);
 
     const wrongOrder = sortLetters(currentTarget.palavra) === sortLetters(word);
-    setRoundErrors((prev) => prev + 1);
     if (wrongOrder) {
       setFeedback("Letras validas, mas a ordem da palavra esta incorreta.");
     } else {
@@ -321,7 +299,6 @@ export default function SoletraGame({
         <span className="pill">
           Pontos: {calcularPontos(foundIndexes.size, targets.length || 1)}
         </span>
-        <span className="pill">Erros: {sessionErrors + roundErrors}</span>
       </div>
 
       <div className="soletra-targets" aria-label="Progresso das palavras">
@@ -456,8 +433,7 @@ export default function SoletraGame({
         <div className="result-box" aria-live="polite">
           <p>{timedOut ? "Tempo esgotado" : "Rodada concluida"}</p>
           <p>
-            Pontos: {calcularPontos(foundIndexes.size, targets.length || 1)}|
-            Erros: {sessionErrors + roundErrors}
+            Pontos: {calcularPontos(foundIndexes.size, targets.length || 1)}
           </p>
           {ranking.length > 0 && (
             <div className="mini-ranking">
@@ -466,7 +442,6 @@ export default function SoletraGame({
                 <div key={row.id} className="mini-row">
                   <span>{row.name}</span>
                   <span>{row.totalPoints ?? 0} pts</span>
-                  <span>{row.totalErrors ?? 0} erros</span>
                 </div>
               ))}
             </div>

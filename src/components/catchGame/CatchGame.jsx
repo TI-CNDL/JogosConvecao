@@ -51,12 +51,10 @@ export default function CatchGame({
   const itemsRef = useRef([]);
 
   const pointsRef = useRef(0);
-  const errorsRef = useRef(0);
   const remainingRef = useRef(timeLimitSeconds);
   const timedOutRef = useRef(false);
 
   const [points, setPoints] = useState(0);
-  const [errors, setErrors] = useState(0);
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
   const [finished, setFinished] = useState(false);
   const [reported, setReported] = useState(false);
@@ -71,7 +69,6 @@ export default function CatchGame({
 
   const syncHud = () => {
     setPoints(pointsRef.current);
-    setErrors(errorsRef.current);
     setTimeLeft(Math.max(0, Math.ceil(remainingRef.current)));
   };
 
@@ -95,7 +92,6 @@ export default function CatchGame({
 
   const restart = () => {
     pointsRef.current = 0;
-    errorsRef.current = 0;
     remainingRef.current = timeLimitSeconds;
     timedOutRef.current = false;
     itemsRef.current = [];
@@ -145,7 +141,6 @@ export default function CatchGame({
 
         if (item.type === ITEM_TYPES.BAD) {
           pointsRef.current -= 10;
-          errorsRef.current += 1;
         } else if (item.type === ITEM_TYPES.SPECIAL) {
           pointsRef.current += 50;
         } else {
@@ -154,7 +149,6 @@ export default function CatchGame({
       } else if (item.y - item.size / 2 > height) {
         if (item.type === ITEM_TYPES.SPECIAL) {
           pointsRef.current -= 50;
-          errorsRef.current += 1;
         }
       } else {
         nextItems.push(item);
@@ -301,7 +295,6 @@ export default function CatchGame({
       game: gameLabel,
       score: pointsRef.current,
       points: pointsRef.current,
-      errors: errorsRef.current,
       elapsedMs,
       timedOut: timedOutRef.current,
     });
@@ -324,7 +317,6 @@ export default function CatchGame({
         </div>
         <span className="pill">Tempo: {timeLeft}s</span>
         <span className="pill">Pontos: {points}</span>
-        <span className="pill">Erros: {errors}</span>
         <span className="pill">High Score: {highScore}</span>
       </div>
 
@@ -343,16 +335,14 @@ export default function CatchGame({
 
       <p className="catch-instructions">
         Arraste o dedo para mover a cesta. <strong>Item ruim coletado</strong> e{" "}
-        <strong>item dourado perdido</strong> contam erro.
+        <strong>item dourado perdido</strong> afetam a pontuação.
       </p>
 
       {finished && (
         <div className="result-box" aria-live="polite">
           <p>{timedOutRef.current ? "Tempo esgotado" : "Partida concluida"}</p>
           <h3>Pontos: {points}</h3>
-          <p>
-            Erros: {errors} | Tempo jogado: {timeLimitSeconds - timeLeft}s
-          </p>
+          <p>Tempo jogado: {timeLimitSeconds - timeLeft}s</p>
 
           {ranking.length > 0 && (
             <div className="mini-ranking">
@@ -361,7 +351,6 @@ export default function CatchGame({
                 <div key={row.id} className="mini-row">
                   <span>{row.name}</span>
                   <span>{row.totalPoints ?? 0} pts</span>
-                  <span>{row.totalErrors ?? 0} erros</span>
                 </div>
               ))}
             </div>

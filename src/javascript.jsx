@@ -435,7 +435,7 @@ export function App() {
     normalizedPhone.length >= 10 && (isKnownPhone || name.trim().length > 1);
   const ActiveGame = gameComponents[selectedGame];
   const selectedMeta = games.find((g) => g.id === selectedGame);
-  const sortByMetrics = (rows, getPoints, getErrors) =>
+  const sortByMetrics = (rows, getPoints) =>
     [...rows].sort((a, b) => {
       const aPoints = Number(getPoints(a) || 0);
       const bPoints = Number(getPoints(b) || 0);
@@ -443,34 +443,19 @@ export function App() {
         return bPoints - aPoints;
       }
 
-      const aErrors = Number(getErrors(a) || 0);
-      const bErrors = Number(getErrors(b) || 0);
-      if (aErrors !== bErrors) {
-        return aErrors - bErrors;
-      }
-
       return (a.name ?? "").localeCompare(b.name ?? "");
     });
 
   const sortRanking = (rows) =>
-    sortByMetrics(
-      rows,
-      (row) => row.totalPoints ?? 0,
-      (row) => row.totalErrors ?? 0,
-    );
+    sortByMetrics(rows, (row) => row.totalPoints ?? 0);
 
   const currentGameRanking = selectedGame
-    ? sortByMetrics(
-        ranking,
-        (row) => row.perGame?.[selectedGame]?.points ?? 0,
-        (row) => row.perGame?.[selectedGame]?.errors ?? 0,
-      )
+    ? sortByMetrics(ranking, (row) => row.perGame?.[selectedGame]?.points ?? 0)
         .map((row) => ({
           ...row,
           totalPoints: row.perGame?.[selectedGame]?.points ?? 0,
-          totalErrors: row.perGame?.[selectedGame]?.errors ?? 0,
         }))
-        .filter((row) => row.totalPoints !== 0 || row.totalErrors !== 0)
+        .filter((row) => row.totalPoints !== 0)
         .slice(0, 10)
     : [];
 
@@ -555,7 +540,6 @@ export function App() {
 
   const handleScore = ({
     points = 0,
-    errors = 0,
     remainingSeconds = 0,
     timedOut = false,
   }) => {
@@ -575,8 +559,6 @@ export function App() {
         ...(current?.perGame ?? {}),
         [gameId]: {
           points: (current?.perGame?.[gameId]?.points ?? 0) + totalPoints,
-          errors:
-            (current?.perGame?.[gameId]?.errors ?? 0) + Math.max(0, errors),
         },
       };
 
@@ -589,7 +571,6 @@ export function App() {
         name: playerName,
         phone: phoneKey,
         totalPoints: (current?.totalPoints ?? 0) + totalPoints,
-        totalErrors: (current?.totalErrors ?? 0) + Math.max(0, errors),
         perGame: nextPerGame,
       };
 

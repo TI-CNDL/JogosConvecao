@@ -56,7 +56,6 @@ export default function MemoryGame({
   const [cards, setCards] = useState(() => buildDeck(runRef.current));
   const [flipped, setFlipped] = useState([]);
   const [locked, setLocked] = useState(false);
-  const [sessionErrors, setSessionErrors] = useState(0);
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
   const [finished, setFinished] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
@@ -68,7 +67,6 @@ export default function MemoryGame({
     setCards(buildDeck(runRef.current));
     setFlipped([]);
     setLocked(false);
-    setSessionErrors(0);
     setTimeLeft(timeLimitSeconds);
     setFinished(noSymbols);
     setTimedOut(false);
@@ -120,7 +118,6 @@ export default function MemoryGame({
       game: "Memoria",
       score: partialPoints,
       points: partialPoints,
-      errors: sessionErrors,
       remainingSeconds: timeLeft,
       timedOut,
     });
@@ -131,7 +128,6 @@ export default function MemoryGame({
     onScore,
     matchedPairs,
     totalPairs,
-    sessionErrors,
     timeLeft,
     timedOut,
   ]);
@@ -155,7 +151,7 @@ export default function MemoryGame({
           ),
         );
         if (!isMatch) {
-          setSessionErrors((prev) => prev + 1);
+          // sem contagem de erros; apenas mantém o estado visual do jogo
         }
         setFlipped([]);
         setLocked(false);
@@ -171,14 +167,16 @@ export default function MemoryGame({
           <h2>{finished ? "Resultado" : "Forme os pares"}</h2>
         </div>
         <span className="pill">Tempo: {timeLeft}s</span>
-        <span className="pill">Pontos: {calcularPontos(matchedPairs, totalPairs)}</span>
-        <span className="pill">Erros: {sessionErrors}</span>
+        <span className="pill">
+          Pontos: {calcularPontos(matchedPairs, totalPairs)}
+        </span>
       </div>
 
       {!noSymbols ? (
         <div className="memory-grid">
           {cards.map((card) => {
-            const show = previewing || card.matched || flipped.includes(card.id);
+            const show =
+              previewing || card.matched || flipped.includes(card.id);
             return (
               <button
                 key={card.id}
@@ -211,7 +209,6 @@ export default function MemoryGame({
                 <div key={row.id} className="mini-row">
                   <span>{row.name}</span>
                   <span>{row.totalPoints ?? 0} pts</span>
-                  <span>{row.totalErrors ?? 0} erros</span>
                 </div>
               ))}
             </div>

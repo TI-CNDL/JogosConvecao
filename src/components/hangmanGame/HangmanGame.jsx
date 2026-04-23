@@ -12,6 +12,7 @@ export default function HangmanGame({
   timeLimitSeconds = 150,
   ranking = [],
 }) {
+  const maxLives = 5;
   const normalize = (text) =>
     (text || "")
       .normalize("NFD")
@@ -20,7 +21,10 @@ export default function HangmanGame({
 
   const alphabet = useMemo(() => "ABCDEFGHIJKLMNOPQRSTUVWXYZÇ".split(""), []);
   const normalizedWords = useMemo(
-    () => words.map((w) => (w ?? "").toUpperCase()).filter((w) => w.length > 0),
+    () =>
+      words
+        .map((word) => (word ?? "").toUpperCase())
+        .filter((word) => word.length > 0),
     [words],
   );
 
@@ -32,18 +36,18 @@ export default function HangmanGame({
 
   const [secret, setSecret] = useState(() => pickRandomWord());
   const [guessed, setGuessed] = useState(new Set());
-  const [sessionErrors, setSessionErrors] = useState(0);
+  const [lives, setLives] = useState(maxLives);
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
   const [finished, setFinished] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [reported, setReported] = useState(false);
+
   const noWords = normalizedWords.length === 0;
 
   useEffect(() => {
-    // Reset completo ao mudar props
     setSecret(pickRandomWord());
     setGuessed(new Set());
-    setSessionErrors(0);
+    setLives(maxLives);
     setTimeLeft(timeLimitSeconds);
     setFinished(noWords);
     setTimedOut(false);
@@ -60,32 +64,32 @@ export default function HangmanGame({
   const won =
     secret.length > 0 &&
     secretNormalized.split("").every((letter) => guessed.has(letter));
+
   const revealedCount = secretNormalized
     .split("")
     .filter((letter) => guessed.has(letter)).length;
 
   useEffect(() => {
-    if (finished) return undefined;
-    if (noWords) return undefined;
+    if (finished || noWords || lives <= 0) return undefined;
     const id = setInterval(() => {
-      setTimeLeft((t) => {
-        if (t <= 1) {
+      setTimeLeft((current) => {
+        if (current <= 1) {
           setFinished(true);
           setTimedOut(true);
           return 0;
         }
-        return t - 1;
+        return current - 1;
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [finished]);
+  }, [finished, noWords, lives]);
 
   useEffect(() => {
-    if (noWords || finished) return;
+    if (noWords || finished || lives <= 0) return;
     if (won) {
       setFinished(true);
     }
-  }, [won, finished, noWords]);
+  }, [won, finished, noWords, lives]);
 
   useEffect(() => {
     if (finished && !reported) {
@@ -94,7 +98,6 @@ export default function HangmanGame({
         game: "Forca",
         score: partialPoints,
         points: partialPoints,
-        errors: sessionErrors,
         remainingSeconds: timeLeft,
         timedOut: timedOut || noWords,
       });
@@ -104,7 +107,6 @@ export default function HangmanGame({
     finished,
     reported,
     onScore,
-    sessionErrors,
     revealedCount,
     secret,
     timeLeft,
@@ -116,15 +118,23 @@ export default function HangmanGame({
     const normalizedLetter = normalize(letter);
     if (won || guessed.has(normalizedLetter) || finished || noWords) return;
     setGuessed((prev) => new Set(prev).add(normalizedLetter));
+
     if (!secretNormalized.includes(normalizedLetter)) {
-      setSessionErrors((prev) => prev + 1);
+      setLives((currentLives) => {
+        const nextLives = Math.max(0, currentLives - 1);
+        if (nextLives === 0) {
+          setFinished(true);
+          setTimedOut(false);
+        }
+        return nextLives;
+      });
     }
   };
 
   const reset = () => {
     setSecret(pickRandomWord());
     setGuessed(new Set());
-    setSessionErrors(0);
+    setLives(maxLives);
     setTimeLeft(timeLimitSeconds);
     setFinished(noWords);
     setTimedOut(false);
@@ -135,13 +145,12 @@ export default function HangmanGame({
     <div className="panel">
       <div className="panel-head">
         <div>
-          <p className="eyebrow">Forca</p>
           <h2>{finished ? "Resultado" : "Adivinhe a palavra"}</h2>
         </div>
+        <span className="pill">Vidas: {lives}</span>
         <span className="pill">
           Pontos: {calcularPontos(revealedCount, secret.length || 1)}
         </span>
-        <span className="pill">Erros: {sessionErrors}</span>
         <span className="pill">Tempo: {timeLeft}s</span>
       </div>
       <div className="hangman-word" aria-live="polite">
@@ -164,14 +173,13 @@ export default function HangmanGame({
           <p>
             {noWords
               ? "Sem palavras para jogar."
-              : timedOut
-                ? `Tempo esgotado. A palavra era ${secret}.`
-                : `A palavra era ${secret}.`}
+              : lives <= 0
+                ? `Você ficou sem vidas. A palavra era ${secret}.`
+                : timedOut
+                  ? `Tempo esgotado. A palavra era ${secret}.`
+                  : `A palavra era ${secret}.`}
           </p>
-          <p>
-            Pontos: {calcularPontos(revealedCount, secret.length || 1)} | Erros:{" "}
-            {sessionErrors}
-          </p>
+          <p>Pontos: {calcularPontos(revealedCount, secret.length || 1)}</p>
           {ranking.length > 0 && (
             <div className="mini-ranking">
               <p className="eyebrow">Ranking deste jogo</p>
@@ -179,7 +187,6 @@ export default function HangmanGame({
                 <div key={row.id} className="mini-row">
                   <span>{row.name}</span>
                   <span>{row.totalPoints ?? 0} pts</span>
-                  <span>{row.totalErrors ?? 0} erros</span>
                 </div>
               ))}
             </div>

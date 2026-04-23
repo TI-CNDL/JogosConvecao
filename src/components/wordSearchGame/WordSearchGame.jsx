@@ -129,7 +129,6 @@ export default function WordSearchGame({
   const [finished, setFinished] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [reported, setReported] = useState(false);
-  const [sessionErrors, setSessionErrors] = useState(0);
   const [generationFailed, setGenerationFailed] = useState(false);
 
   const noWords = wordsFitting.length === 0;
@@ -151,7 +150,6 @@ export default function WordSearchGame({
     setFinished(noWords || newGrid === null);
     setTimedOut(false);
     setReported(false);
-    setSessionErrors(0);
   }, [noWords, wordsFitting, computedSize, maxAttempts, timeLimitSeconds]);
 
   useEffect(() => {
@@ -190,7 +188,6 @@ export default function WordSearchGame({
       game: "Caça-palavras",
       score: partialPoints,
       points: partialPoints,
-      errors: sessionErrors,
       remainingSeconds: timedOut ? 0 : timeLeft,
       timedOut: timedOut || noWords || generationFailed,
     });
@@ -201,7 +198,6 @@ export default function WordSearchGame({
     onScore,
     found.size,
     wordsFitting.length,
-    sessionErrors,
     timeLeft,
     timedOut,
     noWords,
@@ -256,8 +252,6 @@ export default function WordSearchGame({
       const nextCells = new Set(foundCells);
       selected.forEach((cell) => nextCells.add(`${cell.row}-${cell.col}`));
       setFoundCells(nextCells);
-    } else if (!matchWord) {
-      setSessionErrors((current) => current + 1);
     }
 
     setSelecting(false);
@@ -280,7 +274,6 @@ export default function WordSearchGame({
         <span className="pill">
           Pontos: {calcularPontos(found.size, wordsFitting.length || 1)}
         </span>
-        <span className="pill">Erros: {sessionErrors}</span>
         <span className="pill">
           {found.size}/{wordsFitting.length} achadas
         </span>
@@ -336,10 +329,7 @@ export default function WordSearchGame({
       {(finished || timedOut) && (
         <div className="result-box" aria-live="polite">
           <p>{timedOut ? "Tempo esgotado" : "Concluído"}</p>
-          <p>
-            Pontos: {calcularPontos(found.size, wordsFitting.length || 1)} |
-            Erros: {sessionErrors}
-          </p>
+          <p>Pontos: {calcularPontos(found.size, wordsFitting.length || 1)}</p>
           {ranking.length > 0 && (
             <div className="mini-ranking">
               <p className="eyebrow">Ranking deste jogo</p>
@@ -347,7 +337,6 @@ export default function WordSearchGame({
                 <div key={row.id} className="mini-row">
                   <span>{row.name}</span>
                   <span>{row.totalPoints ?? 0} pts</span>
-                  <span>{row.totalErrors ?? 0} erros</span>
                 </div>
               ))}
             </div>
