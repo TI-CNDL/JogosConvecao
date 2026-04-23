@@ -2,42 +2,122 @@
     gap: 14px;
 }
 
-.soletra-word {
-    min-height: 60px;
-    border: 1px solid #1f2937;
-    background: #0b1220;
-    border-radius: 12px;
+.soletra-targets {
     display: grid;
-    place-items: center;
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-}
-
-.soletra-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
 }
 
-.letter-btn {
-    width: 100%;
-    min-height: 64px;
+.target-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid #1f2937;
+    background: #0b1220;
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.target-slot {
+    min-height: 48px;
+    border-radius: 10px;
+    border: 1px dashed #334155;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 28px;
+    line-height: 1;
+    letter-spacing: 0.16em;
+    color: #cbd5e1;
+}
+
+.target-slot.solved {
+    border-style: solid;
+    border-color: #22c55e;
+    color: #dcfce7;
+}
+
+.hint-btn {
+    min-width: 96px;
+    min-height: 60px;
     border-radius: 999px;
-    font-size: 26px;
+    font-weight: 700;
+}
+
+.target-hint {
+    grid-column: 1 / -1;
+    color: #93c5fd;
+    font-size: 14px;
+    min-height: 18px;
+}
+
+.soletra-input {
+    display: grid;
+    gap: 8px;
+}
+
+.honeycomb {
+    width: min(460px, 100%);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-rows: repeat(5, 72px);
+    place-items: center;
+}
+
+.hex-btn {
+    width: 72px;
+    height: 72px;
+    border-radius: 999px;
+    font-size: 28px;
     font-weight: 800;
     background: #1f2937;
     color: #e2e8f0;
 }
 
-.letter-btn.center {
-    background: #14b8a6;
-    color: #042f2e;
+.hex-btn.center {
+    background: #0ea5e9;
+    color: #082f49;
+}
+
+.hex-btn.top {
+    grid-column: 3;
+    grid-row: 1;
+}
+
+.hex-btn.top-right {
+    grid-column: 4;
+    grid-row: 2;
+}
+
+.hex-btn.right {
+    grid-column: 4;
+    grid-row: 4;
+}
+
+.hex-btn.bottom {
+    grid-column: 3;
+    grid-row: 5;
+}
+
+.hex-btn.bottom-left {
+    grid-column: 2;
+    grid-row: 4;
+}
+
+.hex-btn.left {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.hex-btn.center {
+    grid-column: 3;
+    grid-row: 3;
 }
 
 .soletra-actions {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
 }
 
@@ -45,31 +125,73 @@
     width: 100%;
 }
 
-.soletra-found {
-    gap: 10px;
-}
-
-.found-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.found-item {
-    padding: 8px 12px;
-    border: 1px solid #1f2937;
-    border-radius: 999px;
-    background: #0b1220;
+.soletra-feedback {
+    min-height: 20px;
+    color: #facc15;
     font-weight: 700;
+    text-align: center;
+}
+
+.input-slot {
+    min-height: 52px;
+    border-radius: 10px;
+    border: 1px solid #1f2937;
+    background: #0b1220;
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+    font-weight: 800;
+    color: #e2e8f0;
+    transition: all 150ms ease-in-out;
+}
+
+.input-slot.correct {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+    text-shadow: 0 0 8px rgba(34, 197, 94, 0.9);
+    font-weight: 900;
+}
+
+.input-slot.exists {
+    border-color: #eab308;
+    background: rgba(234, 179, 8, 0.15);
+    color: #eab308;
+    text-shadow: 0 0 6px rgba(234, 179, 8, 0.8);
+    font-weight: 900;
+}
+
+.input-slot.wrong {
+    opacity: 0.6;
+}
+
+.target-slot {
+    position: relative;
+}
+
+.target-slot.locked {
+    opacity: 0.5;
+    border-color: #64748b;
+    background: rgba(30, 41, 59, 0.6);
+}
+
+.locked-msg {
+    color: #ef4444;
+    font-size: 12px;
 }
 
 @media (max-width: 720px) {
-    .soletra-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+    .target-row {
+        grid-template-columns: 1fr;
     }
 
-    .letter-btn {
-        min-height: 58px;
+    .honeycomb {
+        grid-template-rows: repeat(5, 62px);
+    }
+
+    .hex-btn {
+        width: 60px;
+        height: 60px;
         font-size: 24px;
     }
 

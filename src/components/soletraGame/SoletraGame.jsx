@@ -1,11 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
 import "./soletraGame.style.css";
 
-const ROUND = {
-  center: "N",
-  letters: ["E", "Z", "T", "R", "O", "L", "N"],
-  words: ["NORTE", "TERNO", "TRENO", "LENTO", "TONEL", "TENOR", "RETONO"],
+const DEFAULT_ROUND_DATA = {
+  exemplos: [
+    {
+      letras: ["L", "O", "G", "I", "S", "T", "A"],
+      alvos: [
+        {
+          palavra: "LOGISTA",
+          dica: "Profissional que organiza operacoes de transporte e distribuicao.",
+        },
+        {
+          palavra: "SOLO",
+          dica: "Modo individual de operacao, com foco em uma unica pessoa.",
+        },
+        {
+          palavra: "SIGLA",
+          dica: "Abreviacao comum em termos tecnicos do varejo.",
+        },
+      ],
+    },
+  ],
 };
+
+const HINT_PENALTY_SECONDS = 10;
+const MAX_HINTS_PER_WORD = 3;
 
 const normalize = (value) =>
   (value || "")
@@ -13,32 +32,123 @@ const normalize = (value) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toUpperCase();
 
+const sortLetters = (word) => normalize(word).split("").sort().join("");
+
+const buildHoneycomb = (letters) => {
+  const fallback = ["A", "B", "C", "D", "E", "F", "G"];
+  const safe = [...letters];
+  while (safe.length < 7) safe.push(fallback[safe.length]);
+  return safe.slice(0, 7);
+};
+
+const normalizeRound = (rawRound) => {
+  const letters = buildHoneycomb((rawRound?.letras ?? []).map(normalize));
+  const targets = (rawRound?.alvos ?? [])
+    .slice(0, 3)
+    .map((item) => ({
+      palavra: normalize(item.palavra),
+      dica: item.dica || "Sem dica cadastrada.",
+    }))
+    .filter((item) => item.palavra.length > 0);
+
+  return { letters, targets };
+};
+
+const pickRoundFromData = (roundData) => {
+  const examples = Array.isArray(roundData?.exemplos) ? roundData.exemplos : [];
+  if (examples.length > 0) {
+    const randomIdx = Math.floor(Math.random() * examples.length);
+    return normalizeRound(examples[randomIdx]);
+  }
+  return normalizeRound(roundData);
+};
+
+const buildHintLevels = (count) => Array.from({ length: count }, () => 0);
+
+const buildMaskedWord = (word, hintLevel) => {
+  const revealed = Math.min(Math.max(hintLevel, 0), MAX_HINTS_PER_WORD);
+  const prefix = word.slice(0, revealed);
+  const suffix = "_".repeat(Math.max(0, word.length - revealed));
+  return `${prefix}${suffix}`;
+};
+
+const getLetterColors = (userWord, targetWord) => {
+  const normalized = normalize(userWord);
+  const colors = [];
+
+  for (let i = 0; i < normalized.length; i++) {
+    const letter = normalized[i];
+    const isCorrectPosition = targetWord[i] === letter;
+    const exists = targetWord.includes(letter);
+
+    if (isCorrectPosition) {
+      colors.push("correct");
+    } else if (exists) {
+      colors.push("exists");
+    } else {
+      colors.push("wrong");
+    }
+  }
+  
+  return colors;
+};
+
 export default function SoletraGame({
   onScore,
   timeLimitSeconds = 120,
   ranking = [],
+  roundData = DEFAULT_ROUND_DATA,
 }) {
-  const validWords = useMemo(() => ROUND.words.map(normalize), []);
-  const letterPool = useMemo(() => ROUND.letters.map(normalize), []);
-  const center = normalize(ROUND.center);
+  const [activeRound, setActiveRound] = useState(() => pickRoundFromData(roundData));
+
+  const letterPool = activeRound.letters;
+  const targets = activeRound.targets;
+
+  const targetByWord = useMemo(
+    () => new Map(targets.map((item, idx) => [item.palavra, idx])),
+    [targets],
+  );
 
   const [typed, setTyped] = useState("");
-  const [found, setFound] = useState(new Set());
+  const [foundIndexes, setFoundIndexes] = useState(new Set());
+  const [hintLevels, setHintLevels] = useState(buildHintLevels(targets.length));
+  const [hintPenaltySeconds, setHintPenaltySeconds] = useState(0);
   const [errors, setErrors] = useState(0);
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
   const [finished, setFinished] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [reported, setReported] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [lastAttemptColors, setLastAttemptColors] = useState(null);
 
-  useEffect(() => {
+  const currentTargetIndex = useMemo(
+    () => targets.findIndex((_, idx) => !foundIndexes.has(idx)),
+    [targets, foundIndexes],
+  );
+
+  const currentTarget =
+    currentTargetIndex >= 0 && currentTargetIndex < targets.length
+      ? targets[currentTargetIndex]
+      : null;
+
+  const resetRoundState = (nextRound) => {
+    setActiveRound(nextRound);
     setTyped("");
-    setFound(new Set());
+    setFoundIndexes(new Set());
+    setHintLevels(buildHintLevels(nextRound.targets.length));
+    setHintPenaltySeconds(0);
     setErrors(0);
     setTimeLeft(timeLimitSeconds);
     setFinished(false);
     setTimedOut(false);
     setReported(false);
-  }, [timeLimitSeconds]);
+    setFeedback("");
+    setLastAttemptColors(null);
+  };
+
+  useEffect(() => {
+    resetRoundState(pickRoundFromData(roundData));
+  }, [timeLimitSeconds, roundData]);
 
   useEffect(() => {
     if (finished) return undefined;
@@ -56,14 +166,15 @@ export default function SoletraGame({
   }, [finished]);
 
   useEffect(() => {
-    if (found.size === validWords.length && !finished) {
+    if (targets.length > 0 && foundIndexes.size === targets.length && !finished) {
       setFinished(true);
     }
-  }, [found, validWords.length, finished]);
+  }, [foundIndexes, targets, finished]);
 
   useEffect(() => {
     if (finished && !reported) {
-      const elapsedMs = Math.max(0, (timeLimitSeconds - timeLeft) * 1000);
+      const baseElapsedMs = Math.max(0, (timeLimitSeconds - timeLeft) * 1000);
+      const elapsedMs = baseElapsedMs + hintPenaltySeconds * 1000;
       onScore?.({
         game: "Soletra",
         score: errors,
@@ -79,22 +190,37 @@ export default function SoletraGame({
     errors,
     timeLeft,
     timeLimitSeconds,
+    hintPenaltySeconds,
     timedOut,
   ]);
 
   const pushLetter = (letter) => {
     if (finished) return;
     setTyped((prev) => `${prev}${letter}`);
+    setFeedback("");
+    setLastAttemptColors(null);
   };
 
   const backspace = () => {
     if (finished) return;
     setTyped((prev) => prev.slice(0, -1));
+    setFeedback("");
+    setLastAttemptColors(null);
   };
 
-  const shuffle = () => {
+  const useHint = (index) => {
     if (finished) return;
-    setTyped((prev) => prev.split("").reverse().join(""));
+    if (foundIndexes.has(index)) return;
+    if (hintLevels[index] >= MAX_HINTS_PER_WORD) return;
+    // Bloqueia se a palavra anterior não foi encontrada
+    if (index > 0 && !foundIndexes.has(index - 1)) return;
+
+    setHintLevels((prev) => {
+      const next = [...prev];
+      next[index] = Math.min(MAX_HINTS_PER_WORD, next[index] + 1);
+      return next;
+    });
+    setHintPenaltySeconds((prev) => prev + HINT_PENALTY_SECONDS);
   };
 
   const confirmWord = () => {
@@ -102,98 +228,179 @@ export default function SoletraGame({
     const word = normalize(typed);
     if (!word) {
       setErrors((prev) => prev + 1);
+      setFeedback("Digite uma palavra antes de enviar.");
       return;
     }
-    const hasCenter = word.includes(center);
+
     const isAllowedChars = word
       .split("")
       .every((letter) => letterPool.includes(letter));
-    const exists = validWords.includes(word);
-    const alreadyFound = found.has(word);
 
-    if (!hasCenter || !isAllowedChars || !exists || alreadyFound) {
+    if (!isAllowedChars) {
       setErrors((prev) => prev + 1);
+      setFeedback("A palavra usa letra que nao esta na colmeia.");
+      setLastAttemptColors(null);
       return;
     }
 
-    setFound((prev) => new Set(prev).add(word));
-    setTyped("");
+    if (!currentTarget) {
+      setErrors((prev) => prev + 1);
+      setFeedback("Nenhuma palavra ativa para validar.");
+      setLastAttemptColors(null);
+      return;
+    }
+
+    const matchedIndex = targetByWord.get(word);
+    if (matchedIndex !== undefined) {
+      if (foundIndexes.has(matchedIndex)) {
+        setErrors((prev) => prev + 1);
+        setFeedback("Essa palavra ja foi encontrada.");
+        setLastAttemptColors(null);
+        return;
+      }
+
+      if (matchedIndex !== currentTargetIndex) {
+        setErrors((prev) => prev + 1);
+        setFeedback("Resolva a palavra atual antes da proxima.");
+        setLastAttemptColors(getLetterColors(word, currentTarget.palavra));
+        return;
+      }
+
+      setFoundIndexes((prev) => new Set(prev).add(matchedIndex));
+      setTyped("");
+      setFeedback("Acertou!");
+      setLastAttemptColors(null);
+      return;
+    }
+
+    // Acerto parcial - mostra cores no input apenas da palavra ativa
+    const colors = getLetterColors(word, currentTarget.palavra);
+    setLastAttemptColors(colors);
+
+    const wrongOrder = sortLetters(currentTarget.palavra) === sortLetters(word);
+    setErrors((prev) => prev + 1);
+    if (wrongOrder) {
+      setFeedback("Letras validas, mas a ordem da palavra esta incorreta.");
+    } else {
+      setFeedback("Palavra nao corresponde ao alvo atual.");
+    }
   };
 
   const reset = () => {
-    setTyped("");
-    setFound(new Set());
-    setErrors(0);
-    setTimeLeft(timeLimitSeconds);
-    setFinished(false);
-    setTimedOut(false);
-    setReported(false);
+    resetRoundState(pickRoundFromData(roundData));
   };
 
-  const sortedFound = [...found].sort((a, b) => a.localeCompare(b));
+  const typedChars = typed.split("");
+  const honey = buildHoneycomb(letterPool);
+  const activeWordLength = currentTarget?.palavra.length ?? 7;
 
   return (
     <div className="soletra panel">
       <div className="panel-head">
         <div>
           <p className="eyebrow">Soletra</p>
-          <h2>{finished ? "Resultado" : "Monte palavras"}</h2>
+          <h2>{finished ? "Resultado" : "Descubra as 3 palavras"}</h2>
         </div>
         <span className="pill">Tempo: {timeLeft}s</span>
         <span className="pill">Erros: {errors}</span>
-        <span className="pill">
-          {found.size}/{validWords.length}
-        </span>
+        <span className="pill">Penalidade: +{hintPenaltySeconds}s</span>
       </div>
 
-      <div className="soletra-word">{typed || "_"}</div>
+      <div className="soletra-targets" aria-label="Progresso das palavras">
+        {targets.map((target, idx) => {
+          const solved = foundIndexes.has(idx);
+          const hintLevel = hintLevels[idx] ?? 0;
+          // Bloqueia se a palavra anterior não foi resolvida
+          const isLocked = idx > 0 && !foundIndexes.has(idx - 1);
 
-      <div className="soletra-grid">
-        {letterPool.map((letter) => (
-          <button
-            key={letter}
-            className={`letter-btn ${letter === center ? "center" : ""}`}
-            onClick={() => pushLetter(letter)}
-            disabled={finished}
-          >
-            {letter}
-          </button>
-        ))}
+          const display = solved
+            ? target.palavra
+            : buildMaskedWord(target.palavra, hintLevel);
+
+          return (
+            <div key={`${target.palavra}-${idx}`} className="target-row">
+              <div className={`target-slot ${solved ? "solved" : ""} ${isLocked ? "locked" : ""}`}>
+                {display}
+              </div>
+              <button
+                className="hint-btn"
+                onClick={() => useHint(idx)}
+                disabled={finished || solved || hintLevel >= MAX_HINTS_PER_WORD || isLocked}
+                aria-label={`Dica da palavra ${idx + 1}`}
+                title={isLocked ? `Resolva a palavra ${idx} primeiro` : ""}
+              >
+                Lampada
+              </button>
+              <div className="target-hint">
+                {isLocked ? (
+                  <span className="locked-msg">Resolva a palavra anterior</span>
+                ) : solved ? (
+                  "Palavra encontrada"
+                ) : (
+                  target.dica
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div
+        className="soletra-input"
+        aria-label="Letras digitadas"
+        style={{ gridTemplateColumns: `repeat(${activeWordLength}, minmax(0, 1fr))` }}
+      >
+        {Array.from({ length: activeWordLength }).map((_, idx) => {
+          const letter = typedChars[idx];
+          const colorClass = lastAttemptColors ? lastAttemptColors[idx] || "" : "";
+          return (
+            <div key={`slot-${idx}`} className={`input-slot ${colorClass}`}>
+              {letter ?? ""}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="honeycomb" role="group" aria-label="Colmeia de letras">
+        <button className="hex-btn top" onClick={() => pushLetter(honey[0])} disabled={finished}>
+          {honey[0]}
+        </button>
+        <button className="hex-btn top-right" onClick={() => pushLetter(honey[1])} disabled={finished}>
+          {honey[1]}
+        </button>
+        <button className="hex-btn right" onClick={() => pushLetter(honey[2])} disabled={finished}>
+          {honey[2]}
+        </button>
+        <button className="hex-btn bottom" onClick={() => pushLetter(honey[3])} disabled={finished}>
+          {honey[3]}
+        </button>
+        <button className="hex-btn bottom-left" onClick={() => pushLetter(honey[4])} disabled={finished}>
+          {honey[4]}
+        </button>
+        <button className="hex-btn left" onClick={() => pushLetter(honey[5])} disabled={finished}>
+          {honey[5]}
+        </button>
+        <button className="hex-btn center" onClick={() => pushLetter(honey[6])} disabled={finished}>
+          {honey[6]}
+        </button>
       </div>
 
       <div className="soletra-actions">
         <button className="ghost" onClick={backspace} disabled={finished}>
           Apagar
         </button>
-        <button className="ghost" onClick={shuffle} disabled={finished}>
-          Inverter
-        </button>
         <button className="primary" onClick={confirmWord} disabled={finished}>
-          Confirmar
+          Enviar
         </button>
       </div>
 
-      <div className="soletra-found panel">
-        <p className="eyebrow">Palavras encontradas</p>
-        {sortedFound.length === 0 ? (
-          <p className="muted">Nenhuma palavra válida ainda.</p>
-        ) : (
-          <div className="found-list">
-            {sortedFound.map((word) => (
-              <span key={word} className="found-item">
-                {word}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+      {feedback ? <p className="soletra-feedback">{feedback}</p> : null}
 
       {finished && (
         <div className="result-box" aria-live="polite">
-          <p>{timedOut ? "Tempo esgotado" : "Partida concluída"}</p>
+          <p>{timedOut ? "Tempo esgotado" : "Partida concluida"}</p>
           <p>
-            Erros: {errors} | Encontradas: {found.size}/{validWords.length} |
-            Tempo: {timeLimitSeconds - timeLeft}s
+            Erros: {errors} | Penalidade: +{hintPenaltySeconds}s | Tempo base: {timeLimitSeconds - timeLeft}s
           </p>
           {ranking.length > 0 && (
             <div className="mini-ranking">

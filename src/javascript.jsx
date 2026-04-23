@@ -93,6 +93,112 @@ const labirintoWords = [
   "ESTOQUE",
   "JARDINEIRO",
 ];
+const soletraRoundData = {
+  exemplos: [
+    {
+      letras: ["L", "O", "G", "I", "S", "T", "A"],
+      alvos: [
+        {
+          palavra: "LOGISTA",
+          dica: "Profissional que organiza operacoes de transporte e distribuicao.",
+        },
+        {
+          palavra: "SIGLA",
+          dica: "Abreviacao comum em termos tecnicos do varejo.",
+        },
+        {
+          palavra: "SOLO",
+          dica: "Modo individual de operacao, com foco em uma unica pessoa.",
+        },
+      ],
+    },
+    {
+      letras: ["C", "A", "I", "X", "P", "D", "V"],
+      alvos: [
+        {
+          palavra: "CAIXA",
+          dica: "Ponto de pagamento e fechamento da compra no varejo.",
+        },
+        {
+          palavra: "PDV",
+          dica: "Sigla do local onde a venda acontece ao cliente.",
+        },
+        {
+          palavra: "VIA",
+          dica: "Canal ou meio por onde a venda ou entrega ocorre.",
+        },
+      ],
+    },
+    {
+      letras: ["E", "N", "T", "R", "G", "A", "L"],
+      alvos: [
+        {
+          palavra: "ENTREGA",
+          dica: "Etapa final da operacao logistica ate o cliente.",
+        },
+        {
+          palavra: "TAG",
+          dica: "Etiqueta curta usada para identificar item/processo.",
+        },
+        {
+          palavra: "LAR",
+          dica: "Destino residencial de boa parte das entregas.",
+        },
+      ],
+    },
+    {
+      letras: ["E", "S", "T", "O", "Q", "U", "L"],
+      alvos: [
+        {
+          palavra: "ESTOQUE",
+          dica: "Conjunto de produtos armazenados para venda.",
+        },
+        {
+          palavra: "LOTE",
+          dica: "Conjunto de itens agrupados para controle.",
+        },
+        {
+          palavra: "TOQUE",
+          dica: "Contato no item usado em etapas de conferencia.",
+        },
+      ],
+    },
+    {
+      letras: ["F", "R", "E", "T", "H", "U", "B"],
+      alvos: [
+        {
+          palavra: "FRETE",
+          dica: "Custo e operacao de transporte de mercadorias.",
+        },
+        {
+          palavra: "HUB",
+          dica: "Ponto central de consolidacao e distribuicao.",
+        },
+        {
+          palavra: "RUTE",
+          dica: "Forma reduzida de rota usada no planejamento.",
+        },
+      ],
+    },
+    {
+      letras: ["O", "M", "N", "I", "C", "A", "L"],
+      alvos: [
+        {
+          palavra: "OMNI",
+          dica: "Estrategia que integra canais de atendimento e venda.",
+        },
+        {
+          palavra: "CANAL",
+          dica: "Meio de comunicacao e venda com o cliente.",
+        },
+        {
+          palavra: "CLIMA",
+          dica: "Termo usado para percepcao do ambiente da loja.",
+        },
+      ],
+    },
+  ],
+};
 const quizQuestions = [
   {
     prompt: "O que significa SKU no varejo?",
@@ -248,7 +354,7 @@ const gameComponents = {
     />
   ),
   labirinto: (props) => <LabirintoGame words={labirintoWords} {...props} />,
-  soletra: (props) => <SoletraGame {...props} />,
+  soletra: (props) => <SoletraGame roundData={soletraRoundData} {...props} />,
 };
 
 export function App() {

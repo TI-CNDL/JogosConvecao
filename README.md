@@ -18,6 +18,13 @@ Aplicação web para totem touch com minijogos de convenção em React + Vite.
 - Labirinto
 - Soletra
 
+## Destaques recentes
+
+- Labirinto: tamanho configuravel de grade (4x4, 8x8, 10x10).
+- Soletra: modo de 3 palavras-alvo por rodada com colmeia de 7 letras.
+- Soletra: sistema de dicas em 2 niveis com penalidade de +10s por uso (aplicada ao tempo final).
+- Soletra: validacao focada apenas nas palavras-alvo do round.
+
 ## Regras de pontuação
 
 - O ranking usa quantidade de erros.
