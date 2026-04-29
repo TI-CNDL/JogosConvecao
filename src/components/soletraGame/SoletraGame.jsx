@@ -306,15 +306,18 @@ export default function SoletraGame({
           const solved = foundIndexes.has(idx);
           const hintLevel = hintLevels[idx] ?? 0;
           const isLocked = idx > 0 && !foundIndexes.has(idx - 1);
+          const revealedByTimeout = timedOut && finished;
+          const unsolvedTimeout = revealedByTimeout && !solved;
 
-          const display = solved
-            ? target.palavra
-            : buildMaskedWord(target.palavra, hintLevel);
+          const display =
+            solved || revealedByTimeout
+              ? target.palavra
+              : buildMaskedWord(target.palavra, hintLevel);
 
           return (
             <div key={`${target.palavra}-${idx}`} className="target-row">
               <div
-                className={`target-slot ${solved ? "solved" : ""} ${isLocked ? "locked" : ""}`}
+                className={`target-slot ${solved ? "solved" : ""} ${unsolvedTimeout ? "unsolved-timeout" : ""} ${isLocked && !revealedByTimeout ? "locked" : ""}`}
               >
                 {display}
               </div>

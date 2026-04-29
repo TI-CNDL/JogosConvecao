@@ -8,6 +8,9 @@
     border: 1px solid #1f2937;
     border-radius: 16px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+    position: relative;
+    z-index: 100;
 }
 
 .topbar h1 {
@@ -16,6 +19,8 @@
 
 .topbar .ghost {
     min-width: 160px;
+    pointer-events: auto;
+    cursor: pointer;
 }
 
 .topbar-actions {

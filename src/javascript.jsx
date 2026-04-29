@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import MemoryGame from "./components/memoryGame/MemoryGame.jsx";
 import QuizGame from "./components/quizGame/QuizGame.jsx";
 import HangmanGame from "./components/hangmanGame/HangmanGame.jsx";
@@ -10,6 +10,12 @@ import PlayerForm from "./components/playerForm/PlayerForm.jsx";
 import MenuGrid from "./components/menuGrid/MenuGrid.jsx";
 import RankingTable from "./components/rankingTable/RankingTable.jsx";
 import HeaderBar from "./components/headerBar/HeaderBar.jsx";
+import {
+  getSeedDatabase,
+  loadAppDatabase,
+  saveAppDatabase,
+  getGameContent,
+} from "./lib/appDatabase.js";
 
 const games = [
   { id: "memory", title: "Jogo da memória", description: "Ache os pares." },
@@ -21,319 +27,22 @@ const games = [
   { id: "catch", title: "Cesta de Ofertas", description: "Colete bons itens." },
 ];
 
-const gameLabels = {
-  memory: "Memória",
-  wordsearch: "Caça-palavras",
-  hangman: "Forca",
-  quiz: "Quiz",
-  labirinto: "Labirinto",
-  soletra: "Soletra",
-  catch: "Cesta de Ofertas",
+const defaultGameData = {
+  memorySymbols: [],
+  labirintoWords: [],
+  soletraRoundData: { exemplos: [] },
+  quizQuestions: [],
+  hangmanWords: [],
+  wordSearchWords: [],
 };
 
-const memorySymbols = [
-  "CX",
-  "SKU",
-  "PIX",
-  "NF",
-  "POS",
-  "PDV",
-  "CAIXA",
-  "ESTOQUE",
-  "FRETE",
-  "HUB",
-  "LASTMILE",
-  "PICKUP",
-  "ROTA",
-  "LOJA",
-  "GONDOLA",
-  "ESTOQUEBAIXO",
-  "CHECKOUT",
-  "CAIXAELETRONICO",
-  "OPERADOR",
-  "SUPERMERCADO",
-  "ATACAREJO",
-  "BALCAO",
-  "BACKSTORE",
-  "CD",
-  "DARKSTORE",
-  "OMNI",
-  "OMNICHANNEL",
-  "RETIRADALOJA",
-  "CLICKCOLLECT",
-  "ENTREGARAPIDA",
-  "CURB",
-  "CARRINHO",
-  "PROMOCAO",
-  "FIDELIDADE",
-  "CASHBACK",
-  "COMPROVANTE",
-  "CUPOM",
-  "ETIQUETA",
-  "BALANCA",
-  "SACOLA",
-  "LOGETRO",
-  "CEASA",
-  "JOAOPESSOA",
-  "PARAIBA",
-  "MANGABEIRA",
-  "TAMBAU",
-  "CABOBRANCO",
-  "BESSA",
-];
-const labirintoWords = [
-  "LOJA",
-  "PIX",
-  "SKU",
-  "PDV",
-  "FILA",
-  "CAIXA",
-  "TOUCH",
-  "JOGAR",
-  "VAREJO",
-  "PAINEL",
-  "ENTREGA",
-  "ESTOQUE",
-  "JARDINEIRO",
-];
-const soletraRoundData = {
-  exemplos: [
-    {
-      letras: ["L", "O", "G", "I", "S", "T", "A"],
-      alvos: [
-        {
-          palavra: "LOGISTA",
-          dica: "Profissional que organiza operacoes de transporte e distribuicao.",
-        },
-        {
-          palavra: "SIGLA",
-          dica: "Abreviacao comum em termos tecnicos do varejo.",
-        },
-        {
-          palavra: "SOLO",
-          dica: "Modo individual de operacao, com foco em uma unica pessoa.",
-        },
-      ],
-    },
-    {
-      letras: ["C", "A", "I", "X", "P", "D", "V"],
-      alvos: [
-        {
-          palavra: "CAIXA",
-          dica: "Ponto de pagamento e fechamento da compra no varejo.",
-        },
-        {
-          palavra: "PDV",
-          dica: "Sigla do local onde a venda acontece ao cliente.",
-        },
-        {
-          palavra: "VIA",
-          dica: "Canal ou meio por onde a venda ou entrega ocorre.",
-        },
-      ],
-    },
-    {
-      letras: ["E", "N", "T", "R", "G", "A", "L"],
-      alvos: [
-        {
-          palavra: "ENTREGA",
-          dica: "Etapa final da operacao logistica ate o cliente.",
-        },
-        {
-          palavra: "TAG",
-          dica: "Etiqueta curta usada para identificar item/processo.",
-        },
-        {
-          palavra: "LAR",
-          dica: "Destino residencial de boa parte das entregas.",
-        },
-      ],
-    },
-    {
-      letras: ["E", "S", "T", "O", "Q", "U", "L"],
-      alvos: [
-        {
-          palavra: "ESTOQUE",
-          dica: "Conjunto de produtos armazenados para venda.",
-        },
-        {
-          palavra: "LOTE",
-          dica: "Conjunto de itens agrupados para controle.",
-        },
-        {
-          palavra: "TOQUE",
-          dica: "Contato no item usado em etapas de conferencia.",
-        },
-      ],
-    },
-    {
-      letras: ["F", "R", "E", "T", "H", "U", "B"],
-      alvos: [
-        {
-          palavra: "FRETE",
-          dica: "Custo e operacao de transporte de mercadorias.",
-        },
-        {
-          palavra: "HUB",
-          dica: "Ponto central de consolidacao e distribuicao.",
-        },
-        {
-          palavra: "RUTE",
-          dica: "Forma reduzida de rota usada no planejamento.",
-        },
-      ],
-    },
-    {
-      letras: ["O", "M", "N", "I", "C", "A", "L"],
-      alvos: [
-        {
-          palavra: "OMNI",
-          dica: "Estrategia que integra canais de atendimento e venda.",
-        },
-        {
-          palavra: "CANAL",
-          dica: "Meio de comunicacao e venda com o cliente.",
-        },
-        {
-          palavra: "CLIMA",
-          dica: "Termo usado para percepcao do ambiente da loja.",
-        },
-      ],
-    },
-  ],
-};
-const quizQuestions = [
-  {
-    prompt: "O que significa SKU no varejo?",
-    options: ["Stock Keeping Unit", "Store Key Unit", "Sale Key User"],
-    answer: "Stock Keeping Unit",
-  },
-  {
-    prompt: "O PDV é mais usado para?",
-    options: ["Ponto de venda", "Posto de viagem", "Plano de divulgação"],
-    answer: "Ponto de venda",
-  },
-  {
-    prompt: "Last mile é a etapa de?",
-    options: ["Entrega final ao cliente", "Compra de insumos", "Gestão fiscal"],
-    answer: "Entrega final ao cliente",
-  },
-  {
-    prompt: "Qual meio de pagamento é instantâneo no Brasil?",
-    options: ["Boleto", "PIX", "TED D+1"],
-    answer: "PIX",
-  },
-  {
-    prompt: "João Pessoa é capital de qual estado?",
-    options: ["Pernambuco", "Paraíba", "Rio Grande do Norte"],
-    answer: "Paraíba",
-  },
-  {
-    prompt: "Click and collect corresponde a?",
-    options: ["Retirar na loja", "Entrega por drone", "Pagamento em dinheiro"],
-    answer: "Retirar na loja",
-  },
-  {
-    prompt: "Qual praia famosa fica em João Pessoa?",
-    options: ["Copacabana", "Cabo Branco", "Pipa"],
-    answer: "Cabo Branco",
-  },
-  {
-    prompt: "Qual bairro comercial é grande em João Pessoa?",
-    options: ["Mangabeira", "Moema", "Savassi"],
-    answer: "Mangabeira",
-  },
-  {
-    prompt: "O que é dark store no varejo?",
-    options: ["Loja fechada para picking", "Depósito fiscal", "Caixa rápido"],
-    answer: "Loja fechada para picking",
-  },
-];
-const hangmanWords = [
-  "LOGISTICA",
-  "VAREJO",
-  "PAINEL",
-  "TOUCH",
-  "JOAOPESSOA",
-  "PARAIBA",
-  "MANGABEIRA",
-  "ESTOQUE",
-  "ENTREGA",
-  "PICKUP",
-  "FRETE",
-  "HUBLOGISTICO",
-  "OMNI",
-  "CAIXA",
-  "PDV",
-  "GONDOLA",
-  "CABOBRANCO",
-  "BESSA",
-  "TAMBAU",
-];
-const wordSearchWords = [
-  "VAREJO",
-  "LOGISTICA",
-  "FRETE",
-  "ESTOQUE",
-  "ENTREGA",
-  "CAIXA",
-  "PDV",
-  "SKU",
-  "PIX",
-  "PICKUP",
-  "HUB",
-  "JOAOPESSOA",
-  "PARAIBA",
-  "CABOBRANCO",
-  "MANGABEIRA",
-  "BESSA",
-  "TAMBAU",
-  "SUPERMERCADO",
-  "ATACAREJO",
-  "OMNI",
-  "FIDELIDADE",
-  "CASHBACK",
-];
+const defaultTimeLimits = {};
 
-const defaultTimeLimits = {
-  memory: 120,
-  wordsearch: 150,
-  hangman: 150,
-  quiz: 120,
-  labirinto: 120,
-  soletra: 120,
-  catch: 120,
-};
+const defaultPairs = {};
 
-const defaultPairs = {
-  memory: 6,
-};
+const defaultGridSizes = {};
 
-const defaultGridSizes = {
-  wordsearch: 10,
-  labirinto: 8,
-};
-
-const defaultQuizCounts = {
-  quiz: 5,
-};
-
-const storageKeys = {
-  player: "player",
-  leads: "leads",
-  settings: "settings",
-  session: "session",
-  ranking: "ranking",
-};
-
-const safeParse = (value, fallback) => {
-  try {
-    const parsed = JSON.parse(value);
-    return parsed ?? fallback;
-  } catch {
-    return fallback;
-  }
-};
+const defaultQuizCounts = {};
 
 const normalizePhone = (value) => (value || "").replace(/\D/g, "");
 const calcularPontos = (parcial, total) => {
@@ -341,98 +50,163 @@ const calcularPontos = (parcial, total) => {
   return Math.floor((Math.max(0, parcial) / total) * 100);
 };
 
-const gameComponents = {
-  memory: (props) => (
-    <MemoryGame
-      symbols={memorySymbols}
-      pairCount={props.pairCount}
-      {...props}
-    />
-  ),
-  wordsearch: (props) => (
-    <WordSearchGame
-      words={wordSearchWords}
-      gridSize={props.gridSize}
-      {...props}
-    />
-  ),
-  hangman: (props) => <HangmanGame words={hangmanWords} {...props} />,
-  quiz: (props) => (
-    <QuizGame
-      questions={quizQuestions}
-      questionLimit={props.questionLimit}
-      {...props}
-    />
-  ),
-  labirinto: (props) => <LabirintoGame words={labirintoWords} {...props} />,
-  soletra: (props) => <SoletraGame roundData={soletraRoundData} {...props} />,
-  catch: (props) => <CatchGame {...props} />,
-};
-
 export function App() {
-  const [screen, setScreen] = useState("menu");
-  const [selectedGame, setSelectedGame] = useState(null);
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [ranking, setRanking] = useState([]);
-  const [leadsByPhone, setLeadsByPhone] = useState({});
-  const [timeLimits, setTimeLimits] = useState(defaultTimeLimits);
-  const [pairsLimits, setPairsLimits] = useState(defaultPairs);
-  const [gridSizes, setGridSizes] = useState(defaultGridSizes);
-  const [quizQuestionLimits, setQuizQuestionLimits] =
-    useState(defaultQuizCounts);
-
-  const effectiveTimeLimit = (gameId) => Math.min(timeLimits[gameId] ?? 30, 30);
+  const [initialDatabase] = useState(() => getSeedDatabase());
+  const [screen, setScreen] = useState(
+    initialDatabase.session.screen ?? "menu",
+  );
+  const [selectedGame, setSelectedGame] = useState(
+    initialDatabase.session.selectedGame ?? null,
+  );
+  const [name, setName] = useState(initialDatabase.player.name ?? "");
+  const [phone, setPhone] = useState(initialDatabase.player.phone ?? "");
+  const [gameData, setGameData] = useState({
+    ...defaultGameData,
+    ...(initialDatabase.gameData ?? {}),
+  });
+  const [ranking, setRanking] = useState(initialDatabase.ranking ?? []);
+  const [leadsByPhone, setLeadsByPhone] = useState(initialDatabase.leads ?? {});
+  const [timeLimits, setTimeLimits] = useState({
+    ...defaultTimeLimits,
+    ...(initialDatabase.settings.timeLimits ?? {}),
+  });
+  const [pairsLimits, setPairsLimits] = useState({
+    ...defaultPairs,
+    ...(initialDatabase.settings.pairsLimits ?? {}),
+  });
+  const [gridSizes, setGridSizes] = useState({
+    ...defaultGridSizes,
+    ...(initialDatabase.settings.gridSizes ?? {}),
+  });
+  const [quizQuestionLimits, setQuizQuestionLimits] = useState({
+    ...defaultQuizCounts,
+    ...(initialDatabase.settings.quizQuestionLimits ?? {}),
+  });
+  const didInitialHydrate = useRef(false);
 
   useEffect(() => {
-    const storedPlayer = safeParse(
-      localStorage.getItem(storageKeys.player),
-      {},
-    );
-    if (storedPlayer.name) setName(storedPlayer.name);
-    if (storedPlayer.phone) setPhone(storedPlayer.phone);
+    let cancelled = false;
+    let retryTimer = 0;
 
-    const storedSettings = safeParse(
-      localStorage.getItem(storageKeys.settings),
-      {},
-    );
-    if (storedSettings.timeLimits)
-      setTimeLimits({ ...defaultTimeLimits, ...storedSettings.timeLimits });
-    if (storedSettings.pairsLimits)
-      setPairsLimits({ ...defaultPairs, ...storedSettings.pairsLimits });
-    if (storedSettings.gridSizes)
-      setGridSizes({ ...defaultGridSizes, ...storedSettings.gridSizes });
-    if (storedSettings.quizQuestionLimits)
+    const hydrateFromServer = async () => {
+      const { database: db, isRemote } = await loadAppDatabase();
+      if (cancelled) return;
+
+      if (!isRemote) {
+        retryTimer = window.setTimeout(hydrateFromServer, 1200);
+        return;
+      }
+
+      setScreen(db.session.screen ?? "menu");
+      setSelectedGame(db.session.selectedGame ?? null);
+      setName(db.player.name ?? "");
+      setPhone(db.player.phone ?? "");
+      setGameData({ ...defaultGameData, ...(db.gameData ?? {}) });
+      setRanking(Array.isArray(db.ranking) ? db.ranking : []);
+      setLeadsByPhone(db.leads ?? {});
+      setTimeLimits({
+        ...defaultTimeLimits,
+        ...(db.settings.timeLimits ?? {}),
+      });
+      setPairsLimits({ ...defaultPairs, ...(db.settings.pairsLimits ?? {}) });
+      setGridSizes({ ...defaultGridSizes, ...(db.settings.gridSizes ?? {}) });
       setQuizQuestionLimits({
         ...defaultQuizCounts,
-        ...storedSettings.quizQuestionLimits,
+        ...(db.settings.quizQuestionLimits ?? {}),
       });
+      didInitialHydrate.current = true;
+    };
 
-    const storedSession = safeParse(
-      localStorage.getItem(storageKeys.session),
-      {},
-    );
-    if (storedSession.selectedGame) setSelectedGame(storedSession.selectedGame);
-    if (storedSession.screen) setScreen(storedSession.screen);
+    hydrateFromServer();
 
-    const storedLeads = safeParse(localStorage.getItem(storageKeys.leads), {});
-    if (storedLeads && typeof storedLeads === "object") {
-      setLeadsByPhone(storedLeads);
-    }
-
-    const storedRanking = safeParse(
-      localStorage.getItem(storageKeys.ranking),
-      [],
-    );
-    if (Array.isArray(storedRanking)) {
-      setRanking(storedRanking);
-    }
+    return () => {
+      cancelled = true;
+      if (retryTimer) {
+        window.clearTimeout(retryTimer);
+      }
+    };
   }, []);
+
+  const effectiveTimeLimit = (gameId) => Math.min(timeLimits[gameId] ?? 30, 30);
+  useEffect(() => {
+    if (!selectedGame || !didInitialHydrate.current) return;
+
+    const loadGameData = async () => {
+      try {
+        const content = await getGameContent(selectedGame);
+        if (!content) return;
+
+        const { words = [], quiz = [], rounds = [] } = content;
+
+        // Map game code to our state keys
+        const dataMap = {
+          memory: { key: "memorySymbols", data: words },
+          wordsearch: {
+            key: "wordSearchWords",
+            data: words.map((w) => w.word),
+          },
+          hangman: { key: "hangmanWords", data: words.map((w) => w.word) },
+          quiz: { key: "quizQuestions", data: quiz },
+          labirinto: { key: "labirintoWords", data: words.map((w) => w.word) },
+          soletra: { key: "soletraRoundData", data: { exemplos: rounds } },
+        };
+
+        const mapping = dataMap[selectedGame];
+        if (mapping) {
+          setGameData((prev) => ({
+            ...prev,
+            [mapping.key]: mapping.data,
+          }));
+        }
+      } catch (err) {
+        console.error(`Failed to load game content for ${selectedGame}:`, err);
+      }
+    };
+
+    loadGameData();
+  }, [selectedGame]);
+
   const normalizedPhone = normalizePhone(phone);
   const knownLead = normalizedPhone ? leadsByPhone[normalizedPhone] : null;
   const isKnownPhone = Boolean(knownLead);
   const canPlay =
     normalizedPhone.length >= 10 && (isKnownPhone || name.trim().length > 1);
+  const gameComponents = useMemo(
+    () => ({
+      memory: (props) => (
+        <MemoryGame
+          symbols={gameData.memorySymbols}
+          pairCount={props.pairCount}
+          {...props}
+        />
+      ),
+      wordsearch: (props) => (
+        <WordSearchGame
+          words={gameData.wordSearchWords}
+          gridSize={props.gridSize}
+          {...props}
+        />
+      ),
+      hangman: (props) => (
+        <HangmanGame words={gameData.hangmanWords} {...props} />
+      ),
+      quiz: (props) => (
+        <QuizGame
+          questions={gameData.quizQuestions}
+          questionLimit={props.questionLimit}
+          {...props}
+        />
+      ),
+      labirinto: (props) => (
+        <LabirintoGame words={gameData.labirintoWords} {...props} />
+      ),
+      soletra: (props) => (
+        <SoletraGame roundData={gameData.soletraRoundData} {...props} />
+      ),
+      catch: (props) => <CatchGame {...props} />,
+    }),
+    [gameData],
+  );
   const ActiveGame = gameComponents[selectedGame];
   const selectedMeta = games.find((g) => g.id === selectedGame);
   const sortByMetrics = (rows, getPoints) =>
@@ -455,54 +229,44 @@ export function App() {
           ...row,
           totalPoints: row.perGame?.[selectedGame]?.points ?? 0,
         }))
-        .filter((row) => row.totalPoints !== 0)
         .slice(0, 10)
     : [];
 
   const mainMenuRanking = sortRanking(ranking).slice(0, 10);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(storageKeys.player, JSON.stringify({ name, phone }));
-    } catch {
-      // ignore persist errors
-    }
-  }, [name, phone]);
+    if (!didInitialHydrate.current) return;
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKeys.leads, JSON.stringify(leadsByPhone));
-    } catch {
-      // ignore persist errors
-    }
-  }, [leadsByPhone]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        storageKeys.settings,
-        JSON.stringify({
+    const timeoutId = setTimeout(() => {
+      saveAppDatabase({
+        player: { name, phone },
+        gameData,
+        leads: leadsByPhone,
+        settings: {
           timeLimits,
           pairsLimits,
           gridSizes,
           quizQuestionLimits,
-        }),
-      );
-    } catch {
-      // ignore persist errors
-    }
-  }, [timeLimits, pairsLimits, gridSizes, quizQuestionLimits]);
+        },
+        session: { selectedGame, screen },
+        ranking,
+      });
+    }, 250);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        storageKeys.session,
-        JSON.stringify({ selectedGame, screen }),
-      );
-    } catch {
-      // ignore persist errors
-    }
-  }, [selectedGame, screen]);
+    return () => clearTimeout(timeoutId);
+  }, [
+    name,
+    phone,
+    gameData,
+    leadsByPhone,
+    timeLimits,
+    pairsLimits,
+    gridSizes,
+    quizQuestionLimits,
+    selectedGame,
+    screen,
+    ranking,
+  ]);
 
   const goCadastro = () => {
     setScreen("identify");
@@ -575,34 +339,9 @@ export function App() {
       };
 
       const withoutCurrent = prev.filter((row) => row.phone !== phoneKey);
-      const next = sortRanking([...withoutCurrent, nextEntry]);
-      try {
-        localStorage.setItem(storageKeys.ranking, JSON.stringify(next));
-      } catch {
-        // ignore persist errors
-      }
-      return next;
+      return sortRanking([...withoutCurrent, nextEntry]);
     });
   };
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKeys.ranking, JSON.stringify(ranking));
-    } catch {
-      // ignore persist errors
-    }
-  }, [ranking]);
-
-  useEffect(() => {
-    if (
-      screen === "identify" &&
-      selectedGame &&
-      normalizedPhone.length >= 10 &&
-      isKnownPhone
-    ) {
-      setScreen("play");
-    }
-  }, [screen, selectedGame, normalizedPhone, isKnownPhone]);
 
   const startGame = () => {
     if (!canPlay || !selectedGame) return;

@@ -37,6 +37,13 @@
     color: #dcfce7;
 }
 
+.target-slot.unsolved-timeout {
+    border-style: solid;
+    border-color: #ef4444;
+    border-width: 2px;
+    color: #fecaca;
+}
+
 .hint-btn {
     min-width: 96px;
     min-height: 60px;

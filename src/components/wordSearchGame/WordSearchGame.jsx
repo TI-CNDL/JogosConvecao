@@ -98,7 +98,7 @@ export default function WordSearchGame({
   ranking = [],
   gridSize = null,
   maxAttempts = 50,
-  maxWords = null,
+  maxWords = 5,
 }) {
   const upperWords = useMemo(
     () => words.map((word) => word.toUpperCase()),
@@ -213,7 +213,18 @@ export default function WordSearchGame({
 
   const extendSelect = (row, col) => {
     if (!selecting || finished || noWords || generationFailed) return;
-    if (selected.some((cell) => cell.row === row && cell.col === col)) return;
+
+    const cellIndex = selected.findIndex(
+      (cell) => cell.row === row && cell.col === col,
+    );
+    if (cellIndex !== -1) {
+      if (cellIndex === 0) return;
+      setSelected((current) => current.slice(0, cellIndex));
+      if (cellIndex === 1) {
+        setDirection(null);
+      }
+      return;
+    }
 
     const last = selected[selected.length - 1];
 

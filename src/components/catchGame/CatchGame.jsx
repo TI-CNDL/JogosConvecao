@@ -11,11 +11,14 @@ const STORAGE_KEY = "catch-game-high-score";
 
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 
-const buildItem = (width, speedFactor) => {
+const buildItem = (width, speedFactor, dangerLevel) => {
+  const badChance = Math.min(0.72, 0.26 + dangerLevel * 0.4);
+  const specialChance = Math.max(0.04, 0.12 - dangerLevel * 0.05);
+
   const roll = Math.random();
   let type = ITEM_TYPES.GOOD;
-  if (roll > 0.88) type = ITEM_TYPES.SPECIAL;
-  else if (roll > 0.62) type = ITEM_TYPES.BAD;
+  if (roll <= badChance) type = ITEM_TYPES.BAD;
+  else if (roll <= badChance + specialChance) type = ITEM_TYPES.SPECIAL;
 
   const size = type === ITEM_TYPES.SPECIAL ? 36 : 32;
   const margin = size + 12;
@@ -53,6 +56,7 @@ export default function CatchGame({
   const pointsRef = useRef(0);
   const remainingRef = useRef(timeLimitSeconds);
   const timedOutRef = useRef(false);
+  const finishedRef = useRef(false);
 
   const [points, setPoints] = useState(0);
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
@@ -66,6 +70,7 @@ export default function CatchGame({
   });
 
   const gameLabel = useMemo(() => "Cesta de Ofertas", []);
+  const showResult = finished && timeLeft <= 0;
 
   const syncHud = () => {
     setPoints(pointsRef.current);
@@ -94,6 +99,7 @@ export default function CatchGame({
     pointsRef.current = 0;
     remainingRef.current = timeLimitSeconds;
     timedOutRef.current = false;
+    finishedRef.current = false;
     itemsRef.current = [];
     spawnTimerRef.current = 0;
     prevTsRef.current = 0;
@@ -105,21 +111,30 @@ export default function CatchGame({
   };
 
   const update = (deltaSec, width, height) => {
-    if (finished) return;
+    if (finishedRef.current) return;
 
     remainingRef.current = Math.max(0, remainingRef.current - deltaSec);
     if (remainingRef.current <= 0) {
       timedOutRef.current = true;
+      finishedRef.current = true;
       setFinished(true);
+      syncHud();
+      return;
     }
 
     const elapsed = timeLimitSeconds - remainingRef.current;
-    const speedFactor = 1 + Math.min(1.4, elapsed / 55);
-    const spawnEvery = Math.max(0.24, 0.85 - elapsed * 0.004);
+    const progress = Math.min(1, elapsed / Math.max(1, timeLimitSeconds));
+    const speedFactor = 1 + progress * 2.1;
+    const spawnEvery = Math.max(0.11, 0.62 - progress * 0.47);
 
     spawnTimerRef.current -= deltaSec;
     if (spawnTimerRef.current <= 0) {
-      itemsRef.current.push(buildItem(width, speedFactor));
+      itemsRef.current.push(buildItem(width, speedFactor, progress));
+
+      if (progress > 0.5 && Math.random() < progress * 0.35) {
+        itemsRef.current.push(buildItem(width, speedFactor, progress));
+      }
+
       spawnTimerRef.current = spawnEvery;
     }
 
@@ -255,7 +270,7 @@ export default function CatchGame({
   };
 
   const updateBasketFromPointer = (event) => {
-    if (finished) return;
+    if (finishedRef.current) return;
     const stage = stageRef.current;
     if (!stage) return;
 
@@ -285,6 +300,10 @@ export default function CatchGame({
   }, [timeLimitSeconds]);
 
   useEffect(() => {
+    finishedRef.current = finished;
+  }, [finished]);
+
+  useEffect(() => {
     if (!finished || reported) return;
 
     const elapsedMs = Math.max(
@@ -312,7 +331,7 @@ export default function CatchGame({
         <div>
           <p className="eyebrow">Cesta de Ofertas</p>
           <h2>
-            {finished ? "Fim de jogo" : "Colete os bons e desvie dos ruins"}
+            {showResult ? "Fim de jogo" : "Colete os bons e desvie dos ruins"}
           </h2>
         </div>
         <span className="pill">Tempo: {timeLeft}s</span>
@@ -338,7 +357,7 @@ export default function CatchGame({
         <strong>item dourado perdido</strong> afetam a pontuação.
       </p>
 
-      {finished && (
+      {showResult && (
         <div className="result-box" aria-live="polite">
           <p>{timedOutRef.current ? "Tempo esgotado" : "Partida concluida"}</p>
           <h3>Pontos: {points}</h3>
