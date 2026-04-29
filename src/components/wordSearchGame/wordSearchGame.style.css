@@ -1,3 +1,9 @@
+/* 
+ * CSS do componente Caça-palavras
+ * Usa variáveis CSS para permitir theming dinâmico
+ * Variáveis com fallbacks para cores padrão
+ */
+
 .word-search {
     gap: 16px;
 }
@@ -5,8 +11,8 @@
 .ws-grid {
     display: grid;
     gap: 6px;
-    background: #0b1220;
-    border: 1px solid #1f2937;
+    background: var(--ws-bg-grid, #0b1220);
+    border: 1px solid var(--ws-border-default, #1f2937);
     border-radius: 12px;
     padding: 10px;
     width: 100%;
@@ -19,24 +25,26 @@
 }
 
 .ws-cell {
-    background: #111827;
-    color: #e2e8f0;
-    border: 1px solid #1f2937;
+    background: var(--ws-bg-cell, #111827);
+    color: var(--ws-text-default, #e2e8f0);
+    border: 1px solid var(--ws-border-default, #1f2937);
     min-height: clamp(54px, 6vw, 64px);
     font-size: clamp(16px, 2vw, 18px);
     font-weight: 700;
     border-radius: 10px;
     aspect-ratio: 1 / 1;
     transition: transform 100ms ease, border-color 120ms ease;
+    cursor: pointer;
 }
 
 .ws-cell.selected {
-    border-color: #38bdf8;
+    border-color: var(--ws-accent-primary, #38bdf8);
+    transform: scale(1.05);
 }
 
 .ws-cell.found {
-    background: #0f766e;
-    border-color: #14b8a6;
+    background: var(--ws-bg-found, #0f766e);
+    border-color: var(--ws-border-found, #14b8a6);
 }
 
 .ws-words {
@@ -48,15 +56,17 @@
 .word-chip {
     padding: 10px 14px;
     border-radius: 999px;
-    background: #1f2937;
-    border: 1px solid #273449;
-    color: #e2e8f0;
+    background: var(--ws-bg-chip, #1f2937);
+    border: 1px solid var(--ws-border-chip, #273449);
+    color: var(--ws-text-default, #e2e8f0);
     font-weight: 600;
+    transition: opacity 200ms ease;
 }
 
 .word-chip.done {
-    background: #14532d;
-    border-color: #22c55e;
+    background: var(--ws-bg-chip-done, #14532d);
+    border-color: var(--ws-border-chip-done, #22c55e);
+    opacity: 0.7;
 }
 
 @media (max-width: 720px) {

@@ -7,8 +7,8 @@
     gap: 8px;
     flex-wrap: wrap;
     justify-content: center;
-    border: 1px solid #1f2937;
-    background: #0b1220;
+    border: 1px solid var(--lab-border, #1f2937);
+    background: var(--lab-bg, #0b1220);
     border-radius: 12px;
     padding: 10px;
 }
@@ -20,15 +20,15 @@
     display: grid;
     place-items: center;
     font-weight: 800;
-    background: #0f172a;
-    border: 1px solid #334155;
-    color: #cbd5e1;
+    background: var(--lab-chip-bg, #0f172a);
+    border: 1px solid var(--lab-chip-border, #334155);
+    color: var(--lab-text, #cbd5e1);
 }
 
 .word-progress-char.done {
-    background: #0f2a3f;
-    border-color: #38bdf8;
-    color: #dbeafe;
+    background: var(--lab-chip-done-bg, #0f2a3f);
+    border-color: var(--lab-chip-done-border, #38bdf8);
+    color: var(--lab-chip-done-text, #dbeafe);
 }
 
 .word-progress-char.next {
@@ -36,24 +36,24 @@
 }
 
 .word-progress-empty {
-    color: #94a3b8;
+    color: var(--lab-muted, #94a3b8);
     font-size: 14px;
     text-align: center;
 }
 
 .maze-hint {
-    border: 1px solid #1f2937;
-    background: #0b1220;
+    border: 1px solid var(--lab-border, #1f2937);
+    background: var(--lab-bg, #0b1220);
     border-radius: 12px;
     padding: 10px 12px;
-    color: #cbd5e1;
+    color: var(--lab-text, #cbd5e1);
     font-size: 14px;
 }
 
 .hint-msg {
     display: block;
     margin-top: 6px;
-    color: #93c5fd;
+    color: var(--lab-accent, #93c5fd);
 }
 
 .maze-actions {
@@ -72,8 +72,8 @@
     display: grid;
     grid-template-columns: repeat(8, minmax(0, 1fr));
     gap: 0;
-    background: #f8fafc;
-    border: 1px solid #1f2937;
+    background: var(--lab-grid-bg, #f8fafc);
+    border: 1px solid var(--lab-border, #1f2937);
     border-radius: 12px;
     padding: 0;
     overflow: hidden;
@@ -97,15 +97,15 @@
     font-weight: 700;
     width: 100%;
     min-width: 0;
-    border: 1px solid #cbd5e1;
-    background: #ffffff;
-    color: #1f2937;
+    border: 1px solid var(--lab-cell-border, #cbd5e1);
+    background: var(--lab-cell-bg, #ffffff);
+    color: var(--lab-cell-text, #1f2937);
     position: relative;
     z-index: 1;
 }
 
 .maze-cell.trail {
-    background: #dbeafe;
+    background: var(--lab-trail-bg, #dbeafe);
 }
 
 .maze-cell .cell-letter {
@@ -114,10 +114,10 @@
     border-radius: 999px;
     display: grid;
     place-items: center;
-    color: #466a93;
+    color: var(--lab-letter-color, #466a93);
     font-weight: 800;
     text-transform: uppercase;
-    background: #eef2f7;
+    background: var(--lab-letter-bg, #eef2f7);
 }
 
 .maze-cell .cell-letter.empty {
@@ -127,8 +127,8 @@
 }
 
 .maze-cell.checkpoint .cell-letter {
-    background: #4f79a4;
-    color: #f8fafc;
+    background: var(--lab-checkpoint-bg, #4f79a4);
+    color: var(--lab-checkpoint-text, #f8fafc);
 }
 
 .maze-cell.target .cell-letter {
@@ -137,7 +137,7 @@
 
 .trail-segment {
     position: absolute;
-    background: #7aa2c9;
+    background: var(--lab-trail-seg, #7aa2c9);
     border-radius: 999px;
 }
 
@@ -145,12 +145,12 @@
     position: absolute;
     transform: translate(-50%, -50%);
     border-radius: 999px;
-    background: #7aa2c9;
+    background: var(--lab-trail-seg, #7aa2c9);
 }
 
 .wall-segment {
     position: absolute;
-    background: #0f172a;
+    background: var(--lab-wall, #0f172a);
     border-radius: 999px;
 }
 
