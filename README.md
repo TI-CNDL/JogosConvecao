@@ -7,7 +7,7 @@ Aplicação web para totem touch com minijogos de convenção em React + Vite.
 - React 19
 - Vite 8
 - ESLint 9
-- Armazenamento local com localStorage
+- Backend Node.js (Express + Sequelize + SQLite)
 
 ## Jogos disponíveis
 
@@ -43,12 +43,12 @@ Aplicação web para totem touch com minijogos de convenção em React + Vite.
 
 ## Persistência
 
-O aplicativo salva no localStorage:
+O aplicativo persiste dados pela API em SQLite:
 
-- Leads por telefone (nome e telefone)
-- Configurações por jogo (tempo, pares, grade e quantidade de perguntas)
-- Sessão atual (tela e jogo selecionado)
+- Jogadores por telefone (cadastro/identificação)
+- Pontuação por partida e por jogo
 - Ranking geral acumulado
+- Conteúdo dos jogos (palavras, perguntas e rodadas)
 
 ## Scripts
 
@@ -56,3 +56,13 @@ O aplicativo salva no localStorage:
 - npm run build
 - npm run preview
 - npm run lint
+- npm run backend
+- npm run fullstack
+
+## Backend local
+
+O comando `npm run backend` sobe a API em `http://localhost:4000`.
+
+Para rodar frontend e backend juntos, use `npm run fullstack`.
+
+Consulte os detalhes do backend em `backend/README.md`.
