@@ -111,7 +111,7 @@ export function App() {
       setName(db.player.name ?? "");
       setPhone(db.player.phone ?? "");
       setGameData({ ...defaultGameData, ...(db.gameData ?? {}) });
-      
+
       try {
         const remoteRanking = await getRanking();
         setRanking(Array.isArray(remoteRanking) ? remoteRanking : []);
@@ -189,7 +189,7 @@ export function App() {
   // Busca o nome do jogador no backend automaticamente ao digitar o telefone
   useEffect(() => {
     if (!isRemoteMode || normalizedPhone.length < 10) return;
-    
+
     let active = true;
     getPlayer(normalizedPhone)
       .then((player) => {
@@ -200,7 +200,7 @@ export function App() {
             [normalizedPhone]: { name: player.name, phone: normalizedPhone },
           }));
           setName((currentName) => {
-            // Se o usuário já começou a digitar algo diferente, não sobrescreve, 
+            // Se o usuário já começou a digitar algo diferente, não sobrescreve,
             // a menos que o campo estivesse vazio
             if (!currentName || currentName === "") return player.name;
             return currentName;
@@ -210,8 +210,10 @@ export function App() {
       .catch(() => {
         // Falha silenciosa
       });
-      
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+    };
   }, [normalizedPhone, isRemoteMode]);
 
   const knownLead = normalizedPhone ? leadsByPhone[normalizedPhone] : null;
@@ -399,12 +401,15 @@ export function App() {
 
         const withoutCurrent = prev.filter((row) => row.phone !== phoneKey);
         const newRanking = sortRanking([...withoutCurrent, nextEntry]);
-        
+
         // Plano B: Salvar fallback local
         try {
-          localStorage.setItem("jogos_fallback_ranking", JSON.stringify(newRanking));
-        } catch(e) {}
-        
+          localStorage.setItem(
+            "jogos_fallback_ranking",
+            JSON.stringify(newRanking),
+          );
+        } catch (e) {}
+
         return newRanking;
       });
     };
@@ -439,7 +444,10 @@ export function App() {
     if (!canPlay || !selectedGame) return;
 
     const phoneKey = normalizePhone(phone);
-    const finalName = isKnownPhone && knownLead?.name && name !== knownLead.name ? knownLead.name : name.trim();
+    const finalName =
+      isKnownPhone && knownLead?.name && name !== knownLead.name
+        ? knownLead.name
+        : name.trim();
 
     if (isRemoteMode) {
       setIsStartingGame(true);
@@ -528,7 +536,9 @@ export function App() {
                 onClick={startGame}
                 disabled={!canPlay || isStartingGame}
               >
-                {isStartingGame ? "Registrando..." : `Começar ${selectedMeta.title}`}
+                {isStartingGame
+                  ? "Registrando..."
+                  : `Começar ${selectedMeta.title}`}
               </button>
             </div>
           ) : (
@@ -540,16 +550,33 @@ export function App() {
       {screen === "play" && (
         <section className="game-area" style={{ position: "relative" }}>
           {isSavingScore && (
-            <div style={{
-              position: "absolute", inset: 0, zIndex: 50,
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              background: "rgba(11, 18, 32, 0.8)", borderRadius: 12, color: "var(--text-color)"
-            }}>
-              <p style={{ fontWeight: 600, fontSize: "1.2rem" }}>Salvando placar...</p>
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 50,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "rgba(11, 18, 32, 0.8)",
+                borderRadius: 12,
+                color: "var(--text-color)",
+              }}
+            >
+              <p style={{ fontWeight: 600, fontSize: "1.2rem" }}>
+                Salvando placar...
+              </p>
             </div>
           )}
           {ActiveGame ? (
-            <div style={{ opacity: isSavingScore ? 0.6 : 1, pointerEvents: isSavingScore ? "none" : "auto", transition: "opacity 0.2s" }}>
+            <div
+              style={{
+                opacity: isSavingScore ? 0.6 : 1,
+                pointerEvents: isSavingScore ? "none" : "auto",
+                transition: "opacity 0.2s",
+              }}
+            >
               <ActiveGame
                 onScore={handleScore}
                 timeLimitSeconds={effectiveTimeLimit(selectedGame)}
