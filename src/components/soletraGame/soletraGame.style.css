@@ -1,69 +1,136 @@
-.soletra {
-    gap: 14px;
+/* ── Variáveis locais do componente ─────────────────────────────── */
+.soletra-game {
+    --sg-gap: 14px;
+    --sg-target-bg: var(--card-bg, #0b1220);
+    --sg-target-border: var(--card-border, #1f2937);
+    --sg-slot-color: var(--text-color, #cbd5e1);
+    --sg-solved-color: var(--success-contrast, #dcfce7);
+    --sg-solved-border: var(--success-color, #22c55e);
+    --sg-failed-color: var(--danger-contrast, #fecaca);
+    --sg-failed-border: var(--danger-color, #ef4444);
+    --sg-hint-color: var(--primary-light, #93c5fd);
+    --sg-hex-bg: var(--surface-color, #1f2937);
+    --sg-hex-color: var(--text-color, #e2e8f0);
+    --sg-hex-center-bg: var(--primary-color, #0ea5e9);
+    --sg-hex-center-color: var(--primary-contrast, #082f49);
+    --sg-feedback-color: var(--warning-color, #facc15);
+    --sg-input-bg: var(--card-bg, #0b1220);
+    --sg-input-border: var(--card-border, #1f2937);
+    --sg-result-bg: var(--surface-alt, #111827);
+
+    display: flex;
+    flex-direction: column;
+    gap: var(--sg-gap);
 }
 
-.soletra-targets {
+/* ── Alvos ─────────────────────────────────────────────────────── */
+.soletra-game .soletra-targets {
     display: grid;
     gap: 10px;
 }
 
-.target-row {
+.soletra-game .soletra-target-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 10px;
     align-items: center;
-    border: 1px solid #1f2937;
-    background: #0b1220;
+    border: 1px solid var(--sg-target-border);
+    background: var(--sg-target-bg);
     border-radius: 12px;
     padding: 10px;
 }
 
-.target-slot {
+.soletra-game .soletra-target-slot {
     min-height: 48px;
     border-radius: 10px;
-    border: 1px dashed #334155;
+    border: 1px dashed var(--sg-target-border);
     display: grid;
     place-items: center;
     font-weight: 800;
     font-size: 28px;
     line-height: 1;
     letter-spacing: 0.16em;
-    color: #cbd5e1;
+    color: var(--sg-slot-color);
 }
 
-.target-slot.solved {
+.soletra-game .soletra-target-slot.solved {
     border-style: solid;
-    border-color: #22c55e;
-    color: #dcfce7;
+    border-color: var(--sg-solved-border);
+    color: var(--sg-solved-color);
 }
 
-.target-slot.unsolved-timeout {
+.soletra-game .soletra-target-slot.unsolved-timeout {
     border-style: solid;
-    border-color: #ef4444;
+    border-color: var(--sg-failed-border);
     border-width: 2px;
-    color: #fecaca;
+    color: var(--sg-failed-color);
 }
 
-.hint-btn {
+.soletra-game .soletra-target-slot.locked {
+    opacity: 0.5;
+    background: rgba(30, 41, 59, 0.6);
+}
+
+.soletra-game .soletra-hint-btn {
     min-width: 96px;
     min-height: 60px;
     border-radius: 999px;
     font-weight: 700;
 }
 
-.target-hint {
+.soletra-game .soletra-target-hint {
     grid-column: 1 / -1;
-    color: #93c5fd;
+    color: var(--sg-hint-color);
     font-size: 14px;
     min-height: 18px;
 }
 
-.soletra-input {
+.soletra-game .soletra-locked-msg {
+    color: var(--sg-failed-border);
+    font-size: 12px;
+}
+
+/* ── Input ─────────────────────────────────────────────────────── */
+.soletra-game .soletra-input {
     display: grid;
     gap: 8px;
 }
 
-.honeycomb {
+.soletra-game .soletra-input-slot {
+    min-height: 52px;
+    border-radius: 10px;
+    border: 1px solid var(--sg-input-border);
+    background: var(--sg-input-bg);
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--sg-slot-color);
+    transition: all 150ms ease-in-out;
+}
+
+.soletra-game .soletra-input-slot.correct {
+    border-color: var(--sg-solved-border);
+    background: rgba(34, 197, 94, 0.2);
+    color: var(--sg-solved-border);
+    text-shadow: 0 0 8px rgba(34, 197, 94, 0.9);
+    font-weight: 900;
+}
+
+.soletra-game .soletra-input-slot.exists {
+    border-color: var(--sg-feedback-color);
+    background: rgba(250, 204, 21, 0.15);
+    color: var(--sg-feedback-color);
+    text-shadow: 0 0 6px rgba(250, 204, 21, 0.8);
+    font-weight: 900;
+}
+
+.soletra-game .soletra-input-slot.wrong {
+    opacity: 0.6;
+}
+
+/* ── Colmeia ───────────────────────────────────────────────────── */
+.soletra-game .soletra-honeycomb {
     width: min(460px, 100%);
     margin: 0 auto;
     display: grid;
@@ -72,137 +139,75 @@
     place-items: center;
 }
 
-.hex-btn {
+.soletra-game .soletra-hex-btn {
     width: 72px;
     height: 72px;
     border-radius: 999px;
     font-size: 28px;
     font-weight: 800;
-    background: #1f2937;
-    color: #e2e8f0;
+    background: var(--sg-hex-bg);
+    color: var(--sg-hex-color);
 }
 
-.hex-btn.center {
-    background: #0ea5e9;
-    color: #082f49;
+.soletra-game .soletra-hex-btn.center {
+    background: var(--sg-hex-center-bg);
+    color: var(--sg-hex-center-color);
 }
 
-.hex-btn.top {
-    grid-column: 3;
-    grid-row: 1;
-}
+.soletra-game .soletra-hex-btn.top { grid-column: 3; grid-row: 1; }
+.soletra-game .soletra-hex-btn.top-right { grid-column: 4; grid-row: 2; }
+.soletra-game .soletra-hex-btn.right { grid-column: 4; grid-row: 4; }
+.soletra-game .soletra-hex-btn.bottom { grid-column: 3; grid-row: 5; }
+.soletra-game .soletra-hex-btn.bottom-left { grid-column: 2; grid-row: 4; }
+.soletra-game .soletra-hex-btn.left { grid-column: 2; grid-row: 2; }
+.soletra-game .soletra-hex-btn.center { grid-column: 3; grid-row: 3; }
 
-.hex-btn.top-right {
-    grid-column: 4;
-    grid-row: 2;
-}
-
-.hex-btn.right {
-    grid-column: 4;
-    grid-row: 4;
-}
-
-.hex-btn.bottom {
-    grid-column: 3;
-    grid-row: 5;
-}
-
-.hex-btn.bottom-left {
-    grid-column: 2;
-    grid-row: 4;
-}
-
-.hex-btn.left {
-    grid-column: 2;
-    grid-row: 2;
-}
-
-.hex-btn.center {
-    grid-column: 3;
-    grid-row: 3;
-}
-
-.soletra-actions {
+/* ── Ações e Feedback ──────────────────────────────────────────── */
+.soletra-game .soletra-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
 }
 
-.soletra-actions button {
+.soletra-game .soletra-actions button {
     width: 100%;
 }
 
-.soletra-feedback {
+.soletra-game .soletra-feedback {
     min-height: 20px;
-    color: #facc15;
+    color: var(--sg-feedback-color);
     font-weight: 700;
     text-align: center;
 }
 
-.input-slot {
-    min-height: 52px;
-    border-radius: 10px;
-    border: 1px solid #1f2937;
-    background: #0b1220;
-    display: grid;
-    place-items: center;
-    font-size: 22px;
-    font-weight: 800;
-    color: #e2e8f0;
-    transition: all 150ms ease-in-out;
+/* ── Resultado ─────────────────────────────────────────────────── */
+.soletra-game .soletra-result-box {
+    background: var(--sg-result-bg);
+    border: 1px solid var(--sg-target-border);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.input-slot.correct {
-    border-color: #22c55e;
-    background: rgba(34, 197, 94, 0.2);
-    color: #22c55e;
-    text-shadow: 0 0 8px rgba(34, 197, 94, 0.9);
-    font-weight: 900;
-}
-
-.input-slot.exists {
-    border-color: #eab308;
-    background: rgba(234, 179, 8, 0.15);
-    color: #eab308;
-    text-shadow: 0 0 6px rgba(234, 179, 8, 0.8);
-    font-weight: 900;
-}
-
-.input-slot.wrong {
-    opacity: 0.6;
-}
-
-.target-slot {
-    position: relative;
-}
-
-.target-slot.locked {
-    opacity: 0.5;
-    border-color: #64748b;
-    background: rgba(30, 41, 59, 0.6);
-}
-
-.locked-msg {
-    color: #ef4444;
-    font-size: 12px;
-}
-
+/* ── Responsivo ────────────────────────────────────────────────── */
 @media (max-width: 720px) {
-    .target-row {
+    .soletra-game .soletra-target-row {
         grid-template-columns: 1fr;
     }
 
-    .honeycomb {
+    .soletra-game .soletra-honeycomb {
         grid-template-rows: repeat(5, 62px);
     }
 
-    .hex-btn {
+    .soletra-game .soletra-hex-btn {
         width: 60px;
         height: 60px;
         font-size: 24px;
     }
 
-    .soletra-actions {
+    .soletra-game .soletra-actions {
         grid-template-columns: 1fr;
     }
 }

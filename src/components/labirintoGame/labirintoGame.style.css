@@ -1,166 +1,184 @@
-.labirinto {
-    gap: 14px;
-}
+/* 
+ * CSS do componente Labirinto
+ * Usa variáveis CSS para permitir theming dinâmico
+ */
 
-.word-progress {
+.labirinto-game {
+    --lbg-bg: var(--card-bg, #0b1220);
+    --lbg-border: var(--card-border, #1f2937);
+    --lbg-text: var(--text-color, #e2e8f0);
+    --lbg-grid-bg: var(--surface-color, #0b1220);
+    --lbg-cell-bg: var(--surface-alt, #111827);
+    --lbg-cell-border: var(--card-border, #1f2937);
+    --lbg-trail: var(--primary-color, #0ea5e9);
+    --lbg-wall: var(--danger-color, #ef4444);
+    --lbg-checkpoint: var(--warning-color, #facc15);
+    --lbg-checkpoint-bg: rgba(250, 204, 21, 0.2);
+    --lbg-hint: var(--primary-light, #7dd3fc);
+
+    gap: 16px;
     display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    justify-content: center;
-    border: 1px solid var(--lab-border, #1f2937);
-    background: var(--lab-bg, #0b1220);
-    border-radius: 12px;
-    padding: 10px;
+    flex-direction: column;
 }
 
-.word-progress-char {
-    width: 42px;
-    height: 42px;
-    border-radius: 999px;
+/* ── Progresso da Palavra ───────────────────────────────────────── */
+.labirinto-game .labirinto-word-progress {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+    background: var(--lbg-cell-bg);
+    border: 1px dashed var(--lbg-border);
+    border-radius: 12px;
+    min-height: 54px;
+    align-items: center;
+}
+
+.labirinto-game .labirinto-word-progress-empty {
+    color: var(--lbg-text);
+    opacity: 0.5;
+    font-size: 14px;
+}
+
+.labirinto-game .labirinto-word-progress-char {
+    width: 32px;
+    height: 32px;
     display: grid;
     place-items: center;
+    background: var(--lbg-bg);
+    border: 1px solid var(--lbg-border);
+    border-radius: 6px;
     font-weight: 800;
-    background: var(--lab-chip-bg, #0f172a);
-    border: 1px solid var(--lab-chip-border, #334155);
-    color: var(--lab-text, #cbd5e1);
+    font-size: 16px;
+    color: var(--lbg-text);
 }
 
-.word-progress-char.done {
-    background: var(--lab-chip-done-bg, #0f2a3f);
-    border-color: var(--lab-chip-done-border, #38bdf8);
-    color: var(--lab-chip-done-text, #dbeafe);
+.labirinto-game .labirinto-word-progress-char.done {
+    background: var(--lbg-trail);
+    border-color: var(--lbg-trail);
+    color: var(--primary-contrast, #082f49);
 }
 
-.word-progress-char.next {
-    box-shadow: 0 0 0 2px #22c55e inset;
-}
-
-.word-progress-empty {
-    color: var(--lab-muted, #94a3b8);
+/* ── Dicas e Ações ──────────────────────────────────────────────── */
+.labirinto-game .labirinto-maze-hint {
+    color: var(--lbg-text);
     font-size: 14px;
-    text-align: center;
+    line-height: 1.4;
 }
 
-.maze-hint {
-    border: 1px solid var(--lab-border, #1f2937);
-    background: var(--lab-bg, #0b1220);
-    border-radius: 12px;
-    padding: 10px 12px;
-    color: var(--lab-text, #cbd5e1);
-    font-size: 14px;
+.labirinto-game .labirinto-hint-msg {
+    color: var(--lbg-hint);
+    font-weight: 700;
 }
 
-.hint-msg {
-    display: block;
-    margin-top: 6px;
-    color: var(--lab-accent, #93c5fd);
-}
-
-.maze-actions {
+.labirinto-game .labirinto-maze-actions {
     display: flex;
     gap: 10px;
-    justify-content: center;
 }
 
-.maze-board {
+.labirinto-game .labirinto-maze-actions button {
+    flex: 1;
+}
+
+/* ── Tabuleiro ──────────────────────────────────────────────────── */
+.labirinto-game .labirinto-maze-board {
     position: relative;
+    background: var(--lbg-grid-bg);
+    border: 1px solid var(--lbg-border);
+    border-radius: 12px;
+    padding: 8px;
     margin: 0 auto;
     touch-action: none;
+    user-select: none;
 }
 
-.maze-grid {
+.labirinto-game .labirinto-maze-grid {
     display: grid;
-    grid-template-columns: repeat(8, minmax(0, 1fr));
-    gap: 0;
-    background: var(--lab-grid-bg, #f8fafc);
-    border: 1px solid var(--lab-border, #1f2937);
-    border-radius: 12px;
-    padding: 0;
-    overflow: hidden;
-    position: relative;
-    z-index: 1;
-}
-
-.maze-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    pointer-events: none;
-}
-
-.maze-cell {
-    aspect-ratio: 1;
-    border-radius: 0;
-    display: grid;
-    place-items: center;
-    font-size: 18px;
-    font-weight: 700;
     width: 100%;
-    min-width: 0;
-    border: 1px solid var(--lab-cell-border, #cbd5e1);
-    background: var(--lab-cell-bg, #ffffff);
-    color: var(--lab-cell-text, #1f2937);
+    aspect-ratio: 1 / 1;
+}
+
+.labirinto-game .labirinto-maze-cell {
+    background: transparent;
+    border: none;
+    outline: none;
     position: relative;
+    display: grid;
+    place-items: center;
+    cursor: crosshair;
+}
+
+.labirinto-game .labirinto-maze-cell.checkpoint {
+    background: var(--lbg-checkpoint-bg);
+}
+
+.labirinto-game .labirinto-cell-letter {
+    font-weight: 800;
+    font-size: clamp(14px, 3.5vw, 22px);
+    color: var(--lbg-text);
+    opacity: 0.8;
+    z-index: 2;
+}
+
+.labirinto-game .labirinto-cell-letter.empty {
+    display: none;
+}
+
+.labirinto-game .labirinto-maze-cell.trail .labirinto-cell-letter {
+    color: var(--primary-contrast, #082f49);
+    opacity: 1;
+}
+
+/* ── Overlay: Linhas e Paredes ──────────────────────────────────── */
+.labirinto-game .labirinto-maze-overlay {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    pointer-events: none;
     z-index: 1;
 }
 
-.maze-cell.trail {
-    background: var(--lab-trail-bg, #dbeafe);
-}
-
-.maze-cell .cell-letter {
-    width: min(80%, 36px);
-    height: min(80%, 36px);
-    border-radius: 999px;
-    display: grid;
-    place-items: center;
-    color: var(--lab-letter-color, #466a93);
-    font-weight: 800;
-    text-transform: uppercase;
-    background: var(--lab-letter-bg, #eef2f7);
-}
-
-.maze-cell .cell-letter.empty {
-    opacity: 0;
-    background: transparent;
-    box-shadow: none;
-}
-
-.maze-cell.checkpoint .cell-letter {
-    background: var(--lab-checkpoint-bg, #4f79a4);
-    color: var(--lab-checkpoint-text, #f8fafc);
-}
-
-.maze-cell.target .cell-letter {
-    box-shadow: 0 0 0 3px #22c55e;
-}
-
-.trail-segment {
+.labirinto-game .labirinto-trail-node {
     position: absolute;
-    background: var(--lab-trail-seg, #7aa2c9);
+    background: var(--lbg-trail);
     border-radius: 999px;
-}
-
-.trail-node {
-    position: absolute;
     transform: translate(-50%, -50%);
-    border-radius: 999px;
-    background: var(--lab-trail-seg, #7aa2c9);
 }
 
-.wall-segment {
+.labirinto-game .labirinto-trail-segment {
     position: absolute;
-    background: var(--lab-wall, #0f172a);
+    background: var(--lbg-trail);
     border-radius: 999px;
+}
+
+.labirinto-game .labirinto-wall-segment {
+    position: absolute;
+    background: var(--lbg-wall);
+    border-radius: 4px;
+}
+
+/* ── Resultado ──────────────────────────────────────────────────── */
+.labirinto-game .labirinto-result-box {
+    background: var(--lbg-cell-bg);
+    border: 1px solid var(--lbg-border);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
 }
 
 @media (max-width: 720px) {
-    .word-progress-char {
-        width: 36px;
-        height: 36px;
+    .labirinto-game .labirinto-maze-board {
+        padding: 4px;
     }
-
-    .maze-cell {
-        font-size: 16px;
+    .labirinto-game .labirinto-maze-overlay {
+        top: 4px;
+        left: 4px;
+        right: 4px;
+        bottom: 4px;
     }
 }

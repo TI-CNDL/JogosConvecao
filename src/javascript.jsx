@@ -15,6 +15,10 @@ import {
   loadAppDatabase,
   saveAppDatabase,
   getGameContent,
+  getRanking,
+  registerPlayer,
+  saveGameScore,
+  getPlayer,
 } from "./lib/appDatabase.js";
 
 const games = [
@@ -82,8 +86,11 @@ export function App() {
     ...defaultQuizCounts,
     ...(initialDatabase.settings.quizQuestionLimits ?? {}),
   });
+  const [isRemoteMode, setIsRemoteMode] = useState(false);
+  const [isSavingScore, setIsSavingScore] = useState(false);
+  const [isStartingGame, setIsStartingGame] = useState(false);
+  const [isDatabaseHydrated, setIsDatabaseHydrated] = useState(false);
   const didInitialHydrate = useRef(false);
-
   useEffect(() => {
     let cancelled = false;
     let retryTimer = 0;
@@ -91,6 +98,8 @@ export function App() {
     const hydrateFromServer = async () => {
       const { database: db, isRemote } = await loadAppDatabase();
       if (cancelled) return;
+
+      setIsRemoteMode(isRemote);
 
       if (!isRemote) {
         retryTimer = window.setTimeout(hydrateFromServer, 1200);
@@ -102,7 +111,15 @@ export function App() {
       setName(db.player.name ?? "");
       setPhone(db.player.phone ?? "");
       setGameData({ ...defaultGameData, ...(db.gameData ?? {}) });
-      setRanking(Array.isArray(db.ranking) ? db.ranking : []);
+      
+      try {
+        const remoteRanking = await getRanking();
+        setRanking(Array.isArray(remoteRanking) ? remoteRanking : []);
+      } catch (e) {
+        console.error("Falha ao buscar ranking remoto", e);
+        setRanking(Array.isArray(db.ranking) ? db.ranking : []);
+      }
+
       setLeadsByPhone(db.leads ?? {});
       setTimeLimits({
         ...defaultTimeLimits,
@@ -114,6 +131,7 @@ export function App() {
         ...defaultQuizCounts,
         ...(db.settings.quizQuestionLimits ?? {}),
       });
+      setIsDatabaseHydrated(true);
       didInitialHydrate.current = true;
     };
 
@@ -127,9 +145,9 @@ export function App() {
     };
   }, []);
 
-  const effectiveTimeLimit = (gameId) => Math.min(timeLimits[gameId] ?? 30, 30);
+  const effectiveTimeLimit = (gameId) => timeLimits[gameId] ?? 30;
   useEffect(() => {
-    if (!selectedGame || !didInitialHydrate.current) return;
+    if (!selectedGame || !isDatabaseHydrated) return;
 
     const loadGameData = async () => {
       try {
@@ -140,7 +158,7 @@ export function App() {
 
         // Map game code to our state keys
         const dataMap = {
-          memory: { key: "memorySymbols", data: words },
+          memory: { key: "memorySymbols", data: words.map((w) => w.word) },
           wordsearch: {
             key: "wordSearchWords",
             data: words.map((w) => w.word),
@@ -164,9 +182,38 @@ export function App() {
     };
 
     loadGameData();
-  }, [selectedGame]);
+  }, [selectedGame, isDatabaseHydrated]);
 
   const normalizedPhone = normalizePhone(phone);
+
+  // Busca o nome do jogador no backend automaticamente ao digitar o telefone
+  useEffect(() => {
+    if (!isRemoteMode || normalizedPhone.length < 10) return;
+    
+    let active = true;
+    getPlayer(normalizedPhone)
+      .then((player) => {
+        if (!active) return;
+        if (player && player.name) {
+          setLeadsByPhone((prev) => ({
+            ...prev,
+            [normalizedPhone]: { name: player.name, phone: normalizedPhone },
+          }));
+          setName((currentName) => {
+            // Se o usuário já começou a digitar algo diferente, não sobrescreve, 
+            // a menos que o campo estivesse vazio
+            if (!currentName || currentName === "") return player.name;
+            return currentName;
+          });
+        }
+      })
+      .catch(() => {
+        // Falha silenciosa
+      });
+      
+    return () => { active = false; };
+  }, [normalizedPhone, isRemoteMode]);
+
   const knownLead = normalizedPhone ? leadsByPhone[normalizedPhone] : null;
   const isKnownPhone = Boolean(knownLead);
   const canPlay =
@@ -175,35 +222,74 @@ export function App() {
     () => ({
       memory: (props) => (
         <MemoryGame
-          symbols={gameData.memorySymbols}
-          pairCount={props.pairCount}
-          {...props}
+          data={{ symbols: gameData.memorySymbols }}
+          settings={{
+            timeLimitSeconds: props.timeLimitSeconds,
+            pairCount: props.pairCount,
+          }}
+          ranking={props.ranking}
+          onScore={props.onScore}
         />
       ),
       wordsearch: (props) => (
         <WordSearchGame
-          words={gameData.wordSearchWords}
-          gridSize={props.gridSize}
-          {...props}
+          data={{ words: gameData.wordSearchWords }}
+          settings={{
+            timeLimitSeconds: props.timeLimitSeconds,
+            gridSize: props.gridSize,
+          }}
+          ranking={props.ranking}
+          onScore={props.onScore}
         />
       ),
       hangman: (props) => (
-        <HangmanGame words={gameData.hangmanWords} {...props} />
+        <HangmanGame
+          data={{ words: gameData.hangmanWords }}
+          settings={{
+            timeLimitSeconds: props.timeLimitSeconds,
+          }}
+          ranking={props.ranking}
+          onScore={props.onScore}
+        />
       ),
       quiz: (props) => (
         <QuizGame
-          questions={gameData.quizQuestions}
-          questionLimit={props.questionLimit}
-          {...props}
+          data={{ questions: gameData.quizQuestions }}
+          settings={{
+            timeLimitSeconds: props.timeLimitSeconds,
+            questionLimit: props.questionLimit,
+          }}
+          ranking={props.ranking}
+          onScore={props.onScore}
         />
       ),
       labirinto: (props) => (
-        <LabirintoGame words={gameData.labirintoWords} {...props} />
+        <LabirintoGame
+          data={{ words: gameData.labirintoWords }}
+          settings={{
+            timeLimitSeconds: props.timeLimitSeconds,
+            gridSize: props.gridSize,
+          }}
+          ranking={props.ranking}
+          onScore={props.onScore}
+        />
       ),
       soletra: (props) => (
-        <SoletraGame roundData={gameData.soletraRoundData} {...props} />
+        <SoletraGame
+          data={{ roundData: gameData.soletraRoundData }}
+          settings={{ timeLimitSeconds: props.timeLimitSeconds }}
+          ranking={props.ranking}
+          onScore={props.onScore}
+        />
       ),
-      catch: (props) => <CatchGame {...props} />,
+      catch: (props) => (
+        <CatchGame
+          data={{}}
+          settings={{ timeLimitSeconds: props.timeLimitSeconds }}
+          ranking={props.ranking}
+          onScore={props.onScore}
+        />
+      ),
     }),
     [gameData],
   );
@@ -234,41 +320,11 @@ export function App() {
 
   const mainMenuRanking = sortRanking(ranking).slice(0, 10);
 
-  useEffect(() => {
-    if (!didInitialHydrate.current) return;
-
-    const timeoutId = setTimeout(() => {
-      saveAppDatabase({
-        player: { name, phone },
-        gameData,
-        leads: leadsByPhone,
-        settings: {
-          timeLimits,
-          pairsLimits,
-          gridSizes,
-          quizQuestionLimits,
-        },
-        session: { selectedGame, screen },
-        ranking,
-      });
-    }, 250);
-
-    return () => clearTimeout(timeoutId);
-  }, [
-    name,
-    phone,
-    gameData,
-    leadsByPhone,
-    timeLimits,
-    pairsLimits,
-    gridSizes,
-    quizQuestionLimits,
-    selectedGame,
-    screen,
-    ranking,
-  ]);
+  // bulk save desativado pois o backend é a fonte da verdade
 
   const goCadastro = () => {
+    setPhone("");
+    setName("");
     setScreen("identify");
   };
 
@@ -283,6 +339,8 @@ export function App() {
 
   const handleSelectGame = (gameId) => {
     setSelectedGame(gameId);
+    setPhone("");
+    setName("");
     setScreen("identify");
   };
 
@@ -302,7 +360,7 @@ export function App() {
     setQuizQuestionLimits((prev) => ({ ...prev, [gameId]: valueLimit }));
   };
 
-  const handleScore = ({
+  const handleScore = async ({
     points = 0,
     remainingSeconds = 0,
     timedOut = false,
@@ -317,41 +375,88 @@ export function App() {
       : Math.max(0, Number(remainingSeconds || 0)) * 5;
     const totalPoints = Number(points || 0) + timeBonus;
 
-    setRanking((prev) => {
-      const current = prev.find((row) => row.phone === phoneKey);
-      const nextPerGame = {
-        ...(current?.perGame ?? {}),
-        [gameId]: {
-          points: (current?.perGame?.[gameId]?.points ?? 0) + totalPoints,
-        },
-      };
+    const updateLocalRanking = () => {
+      setRanking((prev) => {
+        const current = prev.find((row) => row.phone === phoneKey);
+        const nextPerGame = {
+          ...(current?.perGame ?? {}),
+          [gameId]: {
+            points: (current?.perGame?.[gameId]?.points ?? 0) + totalPoints,
+          },
+        };
 
-      const nextEntry = {
-        id:
-          current?.id ??
-          (crypto.randomUUID
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random()}`),
-        name: playerName,
-        phone: phoneKey,
-        totalPoints: (current?.totalPoints ?? 0) + totalPoints,
-        perGame: nextPerGame,
-      };
+        const nextEntry = {
+          id:
+            current?.id ??
+            (crypto.randomUUID
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random()}`),
+          name: playerName,
+          phone: phoneKey,
+          totalPoints: (current?.totalPoints ?? 0) + totalPoints,
+          perGame: nextPerGame,
+        };
 
-      const withoutCurrent = prev.filter((row) => row.phone !== phoneKey);
-      return sortRanking([...withoutCurrent, nextEntry]);
-    });
+        const withoutCurrent = prev.filter((row) => row.phone !== phoneKey);
+        const newRanking = sortRanking([...withoutCurrent, nextEntry]);
+        
+        // Plano B: Salvar fallback local
+        try {
+          localStorage.setItem("jogos_fallback_ranking", JSON.stringify(newRanking));
+        } catch(e) {}
+        
+        return newRanking;
+      });
+    };
+
+    if (isRemoteMode) {
+      setIsSavingScore(true);
+      try {
+        const response = await saveGameScore({
+          phone: phoneKey,
+          gameCode: gameId,
+          points: Number(points || 0),
+          remainingSeconds,
+          timedOut,
+        });
+        if (response && response.top10) {
+          setRanking(response.top10);
+        } else {
+          updateLocalRanking();
+        }
+      } catch (err) {
+        console.error("Falha ao salvar no backend, usando Plano B:", err);
+        updateLocalRanking();
+      } finally {
+        setIsSavingScore(false);
+      }
+    } else {
+      updateLocalRanking();
+    }
   };
 
-  const startGame = () => {
+  const startGame = async () => {
     if (!canPlay || !selectedGame) return;
 
+    const phoneKey = normalizePhone(phone);
+    const finalName = isKnownPhone && knownLead?.name && name !== knownLead.name ? knownLead.name : name.trim();
+
+    if (isRemoteMode) {
+      setIsStartingGame(true);
+      try {
+        await registerPlayer(finalName, phoneKey);
+      } catch (err) {
+        console.error("Falha ao registrar jogador no backend", err);
+      } finally {
+        setIsStartingGame(false);
+      }
+    }
+
     if (!isKnownPhone) {
-      const phoneKey = normalizePhone(phone);
       setLeadsByPhone((prev) => ({
         ...prev,
         [phoneKey]: {
-          name: name.trim(),
+          name: finalName,
           phone: phoneKey,
         },
       }));
@@ -421,9 +526,9 @@ export function App() {
               <button
                 className="primary"
                 onClick={startGame}
-                disabled={!canPlay}
+                disabled={!canPlay || isStartingGame}
               >
-                Começar {selectedMeta.title}
+                {isStartingGame ? "Registrando..." : `Começar ${selectedMeta.title}`}
               </button>
             </div>
           ) : (
@@ -433,16 +538,27 @@ export function App() {
       )}
 
       {screen === "play" && (
-        <section className="game-area">
+        <section className="game-area" style={{ position: "relative" }}>
+          {isSavingScore && (
+            <div style={{
+              position: "absolute", inset: 0, zIndex: 50,
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              background: "rgba(11, 18, 32, 0.8)", borderRadius: 12, color: "var(--text-color)"
+            }}>
+              <p style={{ fontWeight: 600, fontSize: "1.2rem" }}>Salvando placar...</p>
+            </div>
+          )}
           {ActiveGame ? (
-            <ActiveGame
-              onScore={handleScore}
-              timeLimitSeconds={effectiveTimeLimit(selectedGame)}
-              ranking={currentGameRanking}
-              pairCount={pairsLimits[selectedGame]}
-              gridSize={gridSizes[selectedGame]}
-              questionLimit={quizQuestionLimits[selectedGame]}
-            />
+            <div style={{ opacity: isSavingScore ? 0.6 : 1, pointerEvents: isSavingScore ? "none" : "auto", transition: "opacity 0.2s" }}>
+              <ActiveGame
+                onScore={handleScore}
+                timeLimitSeconds={effectiveTimeLimit(selectedGame)}
+                ranking={currentGameRanking}
+                pairCount={pairsLimits[selectedGame]}
+                gridSize={gridSizes[selectedGame]}
+                questionLimit={quizQuestionLimits[selectedGame]}
+              />
+            </div>
           ) : (
             <p>Jogo não encontrado.</p>
           )}

@@ -4,24 +4,30 @@ import { calcularPontos } from "../../utils/scoring";
 
 /**
  * Hook customizado que encapsula toda a lógica do Caça-palavras
- * @param {Object} data - Dados do jogo vindo da API
- * @param {string[]} data.words - Array de palavras a encontrar
- * @param {Object} settings - Configurações do jogo
- * @param {number} settings.timeLimitSeconds - Tempo limite em segundos (padrão 120)
- * @param {number} settings.gridSize - Tamanho customizado da grade (padrão: calculado)
- * @param {number} settings.maxAttempts - Máximo de tentativas de geração (padrão 50)
- * @param {number} settings.maxWords - Máximo de palavras a usar (padrão sem limite)
- * @param {Object} callbacks - Callbacks para eventos do jogo
- * @param {Function} callbacks.onScore - Chamado quando jogo termina: {game, score, points, remainingSeconds, timedOut}
- * @returns {Object} Estado e handlers do jogo
+ *
+ * Contrato de entrada:
+ *   data     — { words: Array<string> }
+ *   settings — { timeLimitSeconds, gridSize, maxAttempts, maxWords }
+ *
+ * Contrato de saída (callbacks):
+ *   onScore(payload)      — disparado quando a partida termina
+ *   onRoundComplete()     — (pode ser usado para modo infinito futuramente)
+ *   onGameOver(payload)   — disparado quando o tempo esgota
  */
-export function useWordSearchLogic(data = {}, settings = {}, callbacks = {}) {
-    const words = data.words || [];
-    const timeLimitSeconds = settings.timeLimitSeconds ?? 120;
-    const gridSize = settings.gridSize ?? null;
-    const maxAttempts = settings.maxAttempts ?? 50;
-    const maxWords = settings.maxWords ?? null;
-    const { onScore } = callbacks;
+export default function useWordSearchLogic({
+    data = {},
+    settings = {},
+    onScore,
+    onRoundComplete,
+    onGameOver,
+}) {
+    const { words = [] } = data;
+    const {
+        timeLimitSeconds = 120,
+        gridSize = null,
+        maxAttempts = 50,
+        maxWords = null,
+    } = settings;
 
     // Processamento de palavras
     const upperWords = useMemo(
@@ -30,6 +36,7 @@ export function useWordSearchLogic(data = {}, settings = {}, callbacks = {}) {
     );
 
     const computedSize = useMemo(() => {
+        if (upperWords.length === 0) return gridSize ?? 10;
         const longest = upperWords.reduce(
             (acc, word) => Math.max(acc, word.length),
             0,
@@ -42,9 +49,14 @@ export function useWordSearchLogic(data = {}, settings = {}, callbacks = {}) {
         return maxWords ? fitting.slice(0, maxWords) : fitting;
     }, [upperWords, computedSize, maxWords]);
 
+    const noWords = wordsFitting.length === 0;
+
+    // Chave para forçar remount interno se necessário
+    const [generationKey, setGenerationKey] = useState(0);
+
     // Estado do jogo
     const [grid, setGrid] = useState(() =>
-        generateGrid(wordsFitting, computedSize, maxAttempts),
+        noWords ? null : generateGrid(wordsFitting, computedSize, maxAttempts),
     );
     const [selecting, setSelecting] = useState(false);
     const [selected, setSelected] = useState([]);
@@ -52,15 +64,15 @@ export function useWordSearchLogic(data = {}, settings = {}, callbacks = {}) {
     const [found, setFound] = useState(new Set());
     const [foundCells, setFoundCells] = useState(new Set());
     const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
-    const [finished, setFinished] = useState(false);
+    const [finished, setFinished] = useState(noWords);
     const [timedOut, setTimedOut] = useState(false);
     const [reported, setReported] = useState(false);
-    const [generationFailed, setGenerationFailed] = useState(false);
-
-    const noWords = wordsFitting.length === 0;
+    const [generationFailed, setGenerationFailed] = useState(
+        !noWords && grid === null,
+    );
 
     // Reset do jogo
-    const reset = useCallback(() => {
+    const resetGame = useCallback(() => {
         const newGrid = noWords
             ? null
             : generateGrid(wordsFitting, computedSize, maxAttempts);
@@ -75,12 +87,13 @@ export function useWordSearchLogic(data = {}, settings = {}, callbacks = {}) {
         setFinished(noWords || newGrid === null);
         setTimedOut(false);
         setReported(false);
+        setGenerationKey((k) => k + 1);
     }, [noWords, wordsFitting, computedSize, maxAttempts, timeLimitSeconds]);
 
     // Inicializa e reseta quando palavras mudam
     useEffect(() => {
-        reset();
-    }, [reset]);
+        resetGame();
+    }, [resetGame]);
 
     // Timer de countdown
     useEffect(() => {
@@ -108,25 +121,39 @@ export function useWordSearchLogic(data = {}, settings = {}, callbacks = {}) {
         }
     }, [finished, found, wordsFitting.length, noWords, generationFailed]);
 
+    const totalWords = wordsFitting.length || 1;
+    const currentPoints = calcularPontos(found.size, totalWords);
+
     // Reporta score quando jogo termina
     useEffect(() => {
         if (!finished || reported) return;
 
-        const partialPoints = calcularPontos(found.size, wordsFitting.length || 1);
-        onScore?.({
+        const isTimeoutOrFailed = timedOut || noWords || generationFailed;
+
+        const payload = {
             game: "Caça-palavras",
-            score: partialPoints,
-            points: partialPoints,
+            score: currentPoints,
+            points: currentPoints,
             remainingSeconds: timedOut ? 0 : timeLeft,
-            timedOut: timedOut || noWords || generationFailed,
-        });
+            timedOut: isTimeoutOrFailed,
+        };
+
+        onScore?.(payload);
+
+        if (isTimeoutOrFailed) {
+            onGameOver?.(payload);
+        } else {
+            onRoundComplete?.(payload);
+        }
+
         setReported(true);
     }, [
         finished,
         reported,
         onScore,
-        found.size,
-        wordsFitting.length,
+        onRoundComplete,
+        onGameOver,
+        currentPoints,
         timeLeft,
         timedOut,
         noWords,
@@ -166,7 +193,7 @@ export function useWordSearchLogic(data = {}, settings = {}, callbacks = {}) {
                 const dr = row - last.row;
                 const dc = col - last.col;
                 const straight =
-                    (dr === 0 && Math.abs(dc) === 1) || (dc === 0 && Math.abs(dr) === 1);
+                    (dr === 0 && Math.abs(dc) === 1) || (dc === 0 && Math.abs(dr) === 1) || Math.abs(dr) === Math.abs(dc);
                 if (!straight) return;
                 setDirection({ dr: Math.sign(dr), dc: Math.sign(dc) });
                 setSelected((current) => [...current, { row, col }]);
@@ -251,12 +278,13 @@ export function useWordSearchLogic(data = {}, settings = {}, callbacks = {}) {
         generationFailed,
 
         // Pontuação
-        score: calcularPontos(found.size, wordsFitting.length || 1),
+        currentPoints,
+        totalWords,
 
         // Handlers
         beginSelect,
         extendSelect,
         finishSelect,
-        reset,
+        resetGame,
     };
 }

@@ -1,24 +1,41 @@
-.memory-grid {
+/* ── Variáveis locais do componente ─────────────────────────────── */
+.memory-game {
+    --mg-card-bg: var(--card-bg, #0b1220);
+    --mg-card-border: var(--card-border, #1f2937);
+    --mg-card-color: var(--card-color, #e2e8f0);
+    --mg-flipped-bg: var(--primary-color, #0ea5e9);
+    --mg-flipped-color: var(--primary-contrast, #0b172a);
+    --mg-matched-bg: var(--success-color, #22c55e);
+    --mg-matched-color: var(--success-contrast, #0b172a);
+    --mg-grid-gap: var(--grid-gap, 20px);
+}
+
+/* ── Grade de cartas ───────────────────────────────────────────── */
+.memory-game .memory-grid {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     align-items: center;
-    gap: 20px;
+    gap: var(--mg-grid-gap);
 }
 
-.card {
-    background: #0b1220;
-    border: 1px solid #1f2937;
-    color: #e2e8f0;
+/* ── Carta base ────────────────────────────────────────────────── */
+.memory-game .card {
+    background: var(--mg-card-bg);
+    border: 1px solid var(--mg-card-border);
+    color: var(--mg-card-color);
     font-size: 20px;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
-.card-flipped {
-    background: #0ea5e9;
-    color: #0b172a;
+/* ── Carta virada ──────────────────────────────────────────────── */
+.memory-game .card-flipped {
+    background: var(--mg-flipped-bg);
+    color: var(--mg-flipped-color);
 }
 
-.card-matched {
-    background: #22c55e;
-    color: #0b172a;
+/* ── Par encontrado ────────────────────────────────────────────── */
+.memory-game .card-matched {
+    background: var(--mg-matched-bg);
+    color: var(--mg-matched-color);
 }

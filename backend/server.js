@@ -20,6 +20,7 @@ async function seedIfNeeded() {
         { code: 'soletra', name: 'Soletra' },
         { code: 'quiz', name: 'Quiz' },
         { code: 'memory', name: 'Memory' },
+        { code: 'labirinto', name: 'Labirinto' },
     ];
 
     const created = {};
@@ -36,6 +37,16 @@ async function seedIfNeeded() {
     const hangmanWords = ['PLATAFORMA', 'ARMAZENAGEM', 'LOGISTICA', 'TRANSPORTE', 'CAIXA'];
     for (const w of hangmanWords) {
         await GameWord.create({ gameId: created.hangman.id, word: w });
+    }
+
+    const memoryWords = ['ESTOQUE', 'PALETE', 'EMPILHADEIRA', 'CAMINHAO', 'GALPAO', 'CAIXA', 'CARRINHO', 'CODIGO'];
+    for (const w of memoryWords) {
+        await GameWord.create({ gameId: created.memory.id, word: w });
+    }
+
+    const labirintoWords = ['SAIDA', 'ROTA', 'CAMINHO', 'MAPA', 'DESTINO'];
+    for (const w of labirintoWords) {
+        await GameWord.create({ gameId: created.labirinto.id, word: w });
     }
 
     const soletraWords = [

@@ -25,7 +25,7 @@ export default function MenuGrid({
               min={30}
               max={600}
               step={10}
-              value={timeLimits?.[game.id] ?? 120}
+              value={timeLimits?.[game.id] ?? 30}
               onChange={(e) =>
                 onTimeLimitChange(game.id, Number(e.target.value))
               }

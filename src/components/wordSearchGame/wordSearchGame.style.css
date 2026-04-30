@@ -4,30 +4,45 @@
  * Variáveis com fallbacks para cores padrão
  */
 
-.word-search {
+.wordsearch-game {
+    --ws-bg-grid: var(--card-bg, #0b1220);
+    --ws-border-default: var(--card-border, #1f2937);
+    --ws-bg-cell: var(--surface-color, #111827);
+    --ws-text-default: var(--text-color, #e2e8f0);
+    --ws-accent-primary: var(--primary-color, #38bdf8);
+    --ws-bg-found: var(--success-color-dark, #0f766e);
+    --ws-border-found: var(--success-color, #14b8a6);
+    --ws-bg-chip: var(--surface-alt, #1f2937);
+    --ws-border-chip: var(--card-border, #273449);
+    --ws-bg-chip-done: var(--success-color-dark, #14532d);
+    --ws-border-chip-done: var(--success-color, #22c55e);
+    --ws-result-bg: var(--surface-alt, #111827);
+
     gap: 16px;
+    display: flex;
+    flex-direction: column;
 }
 
-.ws-grid {
+.wordsearch-game .ws-grid {
     display: grid;
     gap: 6px;
-    background: var(--ws-bg-grid, #0b1220);
-    border: 1px solid var(--ws-border-default, #1f2937);
+    background: var(--ws-bg-grid);
+    border: 1px solid var(--ws-border-default);
     border-radius: 12px;
     padding: 10px;
     width: 100%;
 }
 
-.ws-row {
+.wordsearch-game .ws-row {
     display: grid;
     grid-template-columns: repeat(var(--ws-cols, 10), minmax(0, 1fr));
     gap: 6px;
 }
 
-.ws-cell {
-    background: var(--ws-bg-cell, #111827);
-    color: var(--ws-text-default, #e2e8f0);
-    border: 1px solid var(--ws-border-default, #1f2937);
+.wordsearch-game .ws-cell {
+    background: var(--ws-bg-cell);
+    color: var(--ws-text-default);
+    border: 1px solid var(--ws-border-default);
     min-height: clamp(54px, 6vw, 64px);
     font-size: clamp(16px, 2vw, 18px);
     font-weight: 700;
@@ -37,40 +52,51 @@
     cursor: pointer;
 }
 
-.ws-cell.selected {
-    border-color: var(--ws-accent-primary, #38bdf8);
+.wordsearch-game .ws-cell.selected {
+    border-color: var(--ws-accent-primary);
     transform: scale(1.05);
 }
 
-.ws-cell.found {
-    background: var(--ws-bg-found, #0f766e);
-    border-color: var(--ws-border-found, #14b8a6);
+.wordsearch-game .ws-cell.found {
+    background: var(--ws-bg-found);
+    border-color: var(--ws-border-found);
 }
 
-.ws-words {
+.wordsearch-game .ws-words {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
 }
 
-.word-chip {
+.wordsearch-game .ws-word-chip {
     padding: 10px 14px;
     border-radius: 999px;
-    background: var(--ws-bg-chip, #1f2937);
-    border: 1px solid var(--ws-border-chip, #273449);
-    color: var(--ws-text-default, #e2e8f0);
+    background: var(--ws-bg-chip);
+    border: 1px solid var(--ws-border-chip);
+    color: var(--ws-text-default);
     font-weight: 600;
     transition: opacity 200ms ease;
 }
 
-.word-chip.done {
-    background: var(--ws-bg-chip-done, #14532d);
-    border-color: var(--ws-border-chip-done, #22c55e);
+.wordsearch-game .ws-word-chip.done {
+    background: var(--ws-bg-chip-done);
+    border-color: var(--ws-border-chip-done);
     opacity: 0.7;
 }
 
+.wordsearch-game .ws-result-box {
+    background: var(--ws-result-bg);
+    border: 1px solid var(--ws-border-default);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+}
+
 @media (max-width: 720px) {
-    .ws-cell {
+    .wordsearch-game .ws-cell {
         min-width: 48px;
         min-height: 48px;
         font-size: 16px;

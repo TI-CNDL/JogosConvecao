@@ -1,32 +1,53 @@
-.hangman-word {
-    font-size: 28px;
-    letter-spacing: 8px;
+/* ── Variáveis locais do componente ─────────────────────────────── */
+.hangman-game {
+    --hg-word-bg: var(--card-bg, #0b1220);
+    --hg-word-border: var(--card-border, #1f2937);
+    --hg-word-font-size: 28px;
+    --hg-word-spacing: 8px;
+    --hg-key-bg: var(--surface-color, #1f2937);
+    --hg-key-color: var(--text-color, #e2e8f0);
+    --hg-keyboard-gap: 20px;
+    --hg-result-bg: var(--surface-alt, #111827);
+    --hg-result-border: var(--card-border, #1f2937);
+}
+
+/* ── Palavra mascarada ─────────────────────────────────────────── */
+.hangman-game .hangman-word {
+    font-size: var(--hg-word-font-size);
+    letter-spacing: var(--hg-word-spacing);
     text-align: center;
     padding: 8px;
     border-radius: 12px;
-    background: #0b1220;
-    border: 1px solid #1f2937;
+    background: var(--hg-word-bg);
+    border: 1px solid var(--hg-word-border);
     box-sizing: border-box;
 }
 
-.keyboard {
+/* ── Teclado ───────────────────────────────────────────────────── */
+.hangman-game .hangman-keyboard {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 20px;
+    gap: var(--hg-keyboard-gap);
     box-sizing: border-box;
 }
 
-.key {
-    background: #1f2937;
-    color: #e2e8f0;
+/* ── Tecla individual ──────────────────────────────────────────── */
+.hangman-game .hangman-key {
+    background: var(--hg-key-bg);
+    color: var(--hg-key-color);
     gap: 6px;
+    transition: background 0.15s ease, opacity 0.15s ease;
 }
 
-.result-box {
-    background: #111827;
-    border: 1px solid #1f2937;
-    border-radius: 12px;
+.hangman-game .hangman-key:disabled {
+    opacity: 0.4;
+}
+
+/* ── Resultado ─────────────────────────────────────────────────── */
+.hangman-game .result-box {
+    background: var(--hg-result-bg);
+    border: 1px solid var(--hg-result-border);
     border-radius: 8px;
     padding: 10px 8px;
     font-weight: 700;
@@ -34,5 +55,3 @@
     min-height: 40px;
     min-width: 40px;
 }
-
-

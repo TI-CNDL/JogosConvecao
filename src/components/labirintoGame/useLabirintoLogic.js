@@ -293,12 +293,16 @@ const getSequenceStateFromTrail = ({ trail, checkpointMap, grid, word }) => {
     };
 };
 
-export function useLabirintoLogic({
-    words = [],
-    timeLimitSeconds = 120,
-    gridSize = DEFAULT_GRID_SIZE,
+export default function useLabirintoLogic({
+    data = {},
+    settings = {},
     onScore,
+    onRoundComplete,
+    onGameOver,
 }) {
+    const { words = [] } = data;
+    const { timeLimitSeconds = 120, gridSize = DEFAULT_GRID_SIZE } = settings;
+
     const [round, setRound] = useState(() => generateRound(words, gridSize));
     const [progress, setProgress] = useState(-1);
     const [trail, setTrail] = useState([]);
@@ -399,11 +403,25 @@ export function useLabirintoLogic({
     useEffect(() => {
         if (finished && !reported) {
             const partialPoints = Math.floor((Math.max(0, progress + 1) / (word.length || 1)) * 100);
-            onScore?.({ game: "Labirinto", score: partialPoints, points: partialPoints, remainingSeconds: timeLeft, timedOut });
+            const payload = {
+                game: "Labirinto",
+                score: partialPoints,
+                points: partialPoints,
+                remainingSeconds: timedOut ? 0 : timeLeft,
+                timedOut,
+            };
+            onScore?.(payload);
+            
+            if (timedOut) {
+                onGameOver?.(payload);
+            } else {
+                onRoundComplete?.(payload);
+            }
+            
             setReported(true);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [finished, reported, onScore, progress, word, timeLeft, timedOut]);
+    }, [finished, reported, onScore, onRoundComplete, onGameOver, progress, word, timeLeft, timedOut]);
 
     const attemptMove = (r, c) => {
         if (finished || !round) return;
@@ -609,5 +627,3 @@ export function useLabirintoLogic({
         showHint,
     };
 }
-
-export default useLabirintoLogic;
