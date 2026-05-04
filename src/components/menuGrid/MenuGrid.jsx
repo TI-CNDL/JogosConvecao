@@ -3,13 +3,20 @@ import "./menuGrid.style.css";
 export default function MenuGrid({
   games,
   timeLimits,
+  catchInitialFallTimes,
+  wordSearchWordLimits,
+  wordSearchWordBounds,
   pairsLimits,
   gridSizes,
+  quizQuestionBounds,
   quizQuestionLimits,
   onTimeLimitChange,
+  onCatchInitialFallTimeChange,
+  onWordSearchWordLimitChange,
   onPairsChange,
   onGridSizeChange,
   onQuizLimitChange,
+  onOpenAdminHub,
   onSelect,
 }) {
   return (
@@ -31,6 +38,21 @@ export default function MenuGrid({
               }
             />
           </label>
+          {game.id === "catch" && (
+            <label className="time-field">
+              <span>Tempo inicial da queda (s)</span>
+              <input
+                type="number"
+                min={3}
+                max={30}
+                step={1}
+                value={catchInitialFallTimes?.[game.id] ?? 10}
+                onChange={(e) =>
+                  onCatchInitialFallTimeChange(game.id, Number(e.target.value))
+                }
+              />
+            </label>
+          )}
           {game.id === "memory" && (
             <label className="time-field">
               <span>Pares de cartas</span>
@@ -46,22 +68,58 @@ export default function MenuGrid({
               </select>
             </label>
           )}
-          {game.id === "wordsearch" && (
+          {game.id === "whac" && (
             <label className="time-field">
               <span>Tamanho da grade</span>
               <select
-                value={gridSizes?.[game.id] ?? 10}
+                value={gridSizes?.[game.id] ?? 12}
                 onChange={(e) =>
                   onGridSizeChange(game.id, Number(e.target.value))
                 }
               >
-                {[5, 8, 10, 12].map((val) => (
+                {[12, 16, 20, 25].map((val) => (
                   <option key={val} value={val}>
-                    {val} x {val}
+                    {val} slots
                   </option>
                 ))}
               </select>
             </label>
+          )}
+          {game.id === "wordsearch" && (
+            <>
+              <label className="time-field">
+                <span>Tamanho da grade</span>
+                <select
+                  value={gridSizes?.[game.id] ?? 10}
+                  onChange={(e) =>
+                    onGridSizeChange(game.id, Number(e.target.value))
+                  }
+                >
+                  {[5, 8, 10, 12].map((val) => (
+                    <option key={val} value={val}>
+                      {val} x {val}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="time-field">
+                <span>Qtd. de palavras</span>
+                <input
+                  type="number"
+                  min={wordSearchWordBounds?.min ?? 1}
+                  max={wordSearchWordBounds?.max ?? 1}
+                  step={1}
+                  value={
+                    wordSearchWordLimits?.[game.id] ??
+                    Math.min(5, wordSearchWordBounds?.max ?? 5)
+                  }
+                  onChange={(e) =>
+                    onWordSearchWordLimitChange(game.id, Number(e.target.value))
+                  }
+                  disabled={(wordSearchWordBounds?.max ?? 0) < 1}
+                />
+              </label>
+            </>
           )}
           {game.id === "labirinto" && (
             <label className="time-field">
@@ -83,18 +141,20 @@ export default function MenuGrid({
           {game.id === "quiz" && (
             <label className="time-field">
               <span>Qtd. de perguntas</span>
-              <select
-                value={quizQuestionLimits?.[game.id] ?? 5}
+              <input
+                type="number"
+                min={quizQuestionBounds?.min ?? 0}
+                max={quizQuestionBounds?.max ?? 0}
+                step={1}
+                value={
+                  quizQuestionLimits?.[game.id] ??
+                  Math.min(5, quizQuestionBounds?.max ?? 5)
+                }
                 onChange={(e) =>
                   onQuizLimitChange(game.id, Number(e.target.value))
                 }
-              >
-                {[3, 5, 7, 10].map((val) => (
-                  <option key={val} value={val}>
-                    {val} perguntas
-                  </option>
-                ))}
-              </select>
+                disabled={(quizQuestionBounds?.max ?? 0) < 1}
+              />
             </label>
           )}
           <button className="primary" onClick={() => onSelect(game.id)}>
@@ -102,6 +162,17 @@ export default function MenuGrid({
           </button>
         </article>
       ))}
+      <article className="tile">
+        <p className="eyebrow">Administração</p>
+        <h3>Hub CRUD do Banco</h3>
+        <p className="muted">
+          Veja usuários, palavras, frases, perguntas, respostas e demais
+          registros.
+        </p>
+        <button className="primary" onClick={onOpenAdminHub}>
+          Abrir hub de dados
+        </button>
+      </article>
     </section>
   );
 }

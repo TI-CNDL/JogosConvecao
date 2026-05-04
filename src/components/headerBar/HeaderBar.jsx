@@ -17,7 +17,7 @@ export default function HeaderBar({ screen, onBackToCadastro, onBackToMenu }) {
           </button>
         </div>
       )}
-      {screen === "identify" && (
+      {(screen === "identify" || screen === "admin") && (
         <button className="ghost" onClick={onBackToMenu}>
           Voltar ao menu
         </button>

@@ -77,6 +77,37 @@ export async function getGameContent(gameCode) {
     return await safeFetch(url);
 }
 
+export async function getAdminRecords() {
+    const url = `${apiBaseUrl}/api/admin/records`;
+    return await safeFetch(url);
+}
+
+export async function createAdminRecord(resource, payload) {
+    const url = `${apiBaseUrl}/api/admin/${encodeURIComponent(resource)}`;
+    return await safeFetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function updateAdminRecord(resource, id, payload) {
+    const url = `${apiBaseUrl}/api/admin/${encodeURIComponent(resource)}/${encodeURIComponent(id)}`;
+    return await safeFetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function deleteAdminRecord(resource, id) {
+    const url = `${apiBaseUrl}/api/admin/${encodeURIComponent(resource)}/${encodeURIComponent(id)}`;
+    return await safeFetch(url, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+    });
+}
+
 // Compatibility helpers previously used by the app
 export async function loadAppDatabase() {
     // Try a quick health check to determine if backend is reachable

@@ -6,17 +6,80 @@ const ITEM_TYPES = {
     SPECIAL: "special",
 };
 
+const BASE_TIME_SECONDS = 30;
+const BASE_COUNTS = {
+    [ITEM_TYPES.GOOD]: 41,
+    [ITEM_TYPES.BAD]: 54,
+    [ITEM_TYPES.SPECIAL]: 9,
+};
+const BASE_TOTAL =
+    BASE_COUNTS[ITEM_TYPES.GOOD] +
+    BASE_COUNTS[ITEM_TYPES.BAD] +
+    BASE_COUNTS[ITEM_TYPES.SPECIAL];
+
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 
-const buildItem = (width, speedFactor, dangerLevel) => {
-    const badChance = Math.min(0.72, 0.26 + dangerLevel * 0.4);
-    const specialChance = Math.max(0.04, 0.12 - dangerLevel * 0.05);
+const fisherYatesShuffle = (arr) => {
+    const copy = [...arr];
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+};
 
-    const roll = Math.random();
-    let type = ITEM_TYPES.GOOD;
-    if (roll <= badChance) type = ITEM_TYPES.BAD;
-    else if (roll <= badChance + specialChance) type = ITEM_TYPES.SPECIAL;
+const buildSpawnPlan = (timeLimitSeconds) => {
+    const scale = Math.max(0, timeLimitSeconds) / BASE_TIME_SECONDS;
+    const targetTotal = Math.max(1, Math.round(BASE_TOTAL * scale));
 
+    const rawGood = BASE_COUNTS[ITEM_TYPES.GOOD] * scale;
+    const rawBad = BASE_COUNTS[ITEM_TYPES.BAD] * scale;
+    const rawSpecial = BASE_COUNTS[ITEM_TYPES.SPECIAL] * scale;
+
+    const counts = {
+        [ITEM_TYPES.GOOD]: Math.floor(rawGood),
+        [ITEM_TYPES.BAD]: Math.floor(rawBad),
+        [ITEM_TYPES.SPECIAL]: Math.floor(rawSpecial),
+    };
+
+    let remainder =
+        targetTotal -
+        (counts[ITEM_TYPES.GOOD] +
+            counts[ITEM_TYPES.BAD] +
+            counts[ITEM_TYPES.SPECIAL]);
+
+    const fractions = [
+        { type: ITEM_TYPES.GOOD, frac: rawGood - counts[ITEM_TYPES.GOOD] },
+        { type: ITEM_TYPES.BAD, frac: rawBad - counts[ITEM_TYPES.BAD] },
+        {
+            type: ITEM_TYPES.SPECIAL,
+            frac: rawSpecial - counts[ITEM_TYPES.SPECIAL],
+        },
+    ].sort((a, b) => b.frac - a.frac);
+
+    let idx = 0;
+    while (remainder > 0) {
+        const type = fractions[idx % fractions.length].type;
+        counts[type] += 1;
+        remainder -= 1;
+        idx += 1;
+    }
+
+    const plan = [];
+    for (let i = 0; i < counts[ITEM_TYPES.GOOD]; i += 1) {
+        plan.push(ITEM_TYPES.GOOD);
+    }
+    for (let i = 0; i < counts[ITEM_TYPES.BAD]; i += 1) {
+        plan.push(ITEM_TYPES.BAD);
+    }
+    for (let i = 0; i < counts[ITEM_TYPES.SPECIAL]; i += 1) {
+        plan.push(ITEM_TYPES.SPECIAL);
+    }
+
+    return fisherYatesShuffle(plan);
+};
+
+const buildItem = (width, speedFactor, baselineVy, type) => {
     const size = type === ITEM_TYPES.SPECIAL ? 36 : 32;
     const margin = size + 12;
 
@@ -26,13 +89,13 @@ const buildItem = (width, speedFactor, dangerLevel) => {
         x: randomBetween(margin, Math.max(margin + 1, width - margin)),
         y: -size,
         size,
-        vy: randomBetween(95, 170) * speedFactor,
+        vy: randomBetween(0.9, 1.15) * baselineVy * speedFactor,
         icon:
             type === ITEM_TYPES.GOOD
                 ? ["📦", "📱", "🪙", "✅"][Math.floor(Math.random() * 4)]
                 : type === ITEM_TYPES.BAD
-                ? ["💥", "⚠️", "↩️", "🗑️"][Math.floor(Math.random() * 4)]
-                : "⭐",
+                    ? ["💥", "⚠️", "↩️", "🗑️"][Math.floor(Math.random() * 4)]
+                    : "⭐",
     };
 };
 
@@ -54,7 +117,7 @@ export default function useCatchGameLogic({
     onScore,
     onGameOver,
 }) {
-    const { timeLimitSeconds = 90 } = settings;
+    const { timeLimitSeconds = 90, initialFallTimeSeconds = 10 } = settings;
 
     // Refs para a View conectar o DOM
     const canvasRef = useRef(null);
@@ -63,9 +126,10 @@ export default function useCatchGameLogic({
     // Refs mutáveis para o Game Loop (Performance)
     const rafRef = useRef(0);
     const prevTsRef = useRef(0);
-    const spawnTimerRef = useRef(0);
     const basketRef = useRef({ x: 240, y: 470, w: 132, h: 34, glow: 0 });
     const itemsRef = useRef([]);
+    const spawnPlanRef = useRef([]);
+    const spawnedCountRef = useRef(0);
 
     const pointsRef = useRef(0);
     const remainingRef = useRef(timeLimitSeconds);
@@ -108,7 +172,8 @@ export default function useCatchGameLogic({
         timedOutRef.current = false;
         finishedRef.current = false;
         itemsRef.current = [];
-        spawnTimerRef.current = 0;
+        spawnPlanRef.current = buildSpawnPlan(timeLimitSeconds);
+        spawnedCountRef.current = 0;
         prevTsRef.current = 0;
         basketRef.current.glow = 0;
 
@@ -119,16 +184,12 @@ export default function useCatchGameLogic({
 
     const update = useCallback(
         (deltaSec, width, height) => {
+            // Calcula a velocidade baseline baseada no tempo inicial desejado
+            const baselineVy = height / Math.max(1, initialFallTimeSeconds);
+
             if (finishedRef.current) return;
 
             remainingRef.current = Math.max(0, remainingRef.current - deltaSec);
-            if (remainingRef.current <= 0) {
-                timedOutRef.current = true;
-                finishedRef.current = true;
-                setFinished(true);
-                syncHud();
-                return;
-            }
 
             const elapsed = timeLimitSeconds - remainingRef.current;
             const progress = Math.min(
@@ -136,19 +197,16 @@ export default function useCatchGameLogic({
                 elapsed / Math.max(1, timeLimitSeconds),
             );
             const speedFactor = 1 + progress * 2.1;
-            const spawnEvery = Math.max(0.11, 0.62 - progress * 0.47);
+            const planLength = spawnPlanRef.current.length;
+            const expectedSpawned = Math.min(
+                planLength,
+                Math.floor((elapsed / Math.max(1, timeLimitSeconds)) * planLength),
+            );
 
-            spawnTimerRef.current -= deltaSec;
-            if (spawnTimerRef.current <= 0) {
-                itemsRef.current.push(buildItem(width, speedFactor, progress));
-
-                if (progress > 0.5 && Math.random() < progress * 0.35) {
-                    itemsRef.current.push(
-                        buildItem(width, speedFactor, progress),
-                    );
-                }
-
-                spawnTimerRef.current = spawnEvery;
+            while (spawnedCountRef.current < expectedSpawned) {
+                const type = spawnPlanRef.current[spawnedCountRef.current];
+                itemsRef.current.push(buildItem(width, speedFactor, baselineVy, type));
+                spawnedCountRef.current += 1;
             }
 
             const basket = basketRef.current;
@@ -186,9 +244,15 @@ export default function useCatchGameLogic({
 
             itemsRef.current = nextItems;
 
+            if (remainingRef.current <= 0) {
+                timedOutRef.current = true;
+                finishedRef.current = true;
+                setFinished(true);
+            }
+
             syncHud();
         },
-        [timeLimitSeconds, syncHud],
+        [timeLimitSeconds, initialFallTimeSeconds, syncHud],
     );
 
     const draw = useCallback(() => {
@@ -213,13 +277,13 @@ export default function useCatchGameLogic({
             ctx.fillStyle = isSpecial
                 ? "rgba(254, 220, 80, 0.18)"
                 : isBad
-                ? "rgba(239, 68, 68, 0.18)"
-                : "rgba(14, 165, 233, 0.16)";
+                    ? "rgba(239, 68, 68, 0.18)"
+                    : "rgba(14, 165, 233, 0.16)";
             ctx.strokeStyle = isSpecial
                 ? "#fedc50"
                 : isBad
-                ? "#ef4444"
-                : "#38bdf8";
+                    ? "#ef4444"
+                    : "#38bdf8";
             ctx.lineWidth = 2;
             ctx.roundRect(
                 item.x - item.size / 2,

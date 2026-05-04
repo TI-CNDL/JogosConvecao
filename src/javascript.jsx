@@ -6,6 +6,8 @@ import WordSearchGame from "./components/wordSearchGame/WordSearchGame.jsx";
 import LabirintoGame from "./components/labirintoGame/LabirintoGame.jsx";
 import SoletraGame from "./components/soletraGame/SoletraGame.jsx";
 import CatchGame from "./components/catchGame/CatchGame.jsx";
+import WhacGame from "./components/whacGame/WhacGame.jsx";
+import AdminHub from "./components/adminHub/AdminHubV2.jsx";
 import PlayerForm from "./components/playerForm/PlayerForm.jsx";
 import MenuGrid from "./components/menuGrid/MenuGrid.jsx";
 import RankingTable from "./components/rankingTable/RankingTable.jsx";
@@ -29,6 +31,7 @@ const games = [
   { id: "labirinto", title: "Labirinto", description: "Ache a saída." },
   { id: "soletra", title: "Soletra", description: "Forme palavras." },
   { id: "catch", title: "Cesta de Ofertas", description: "Colete bons itens." },
+  { id: "whac", title: "Omni-Catch", description: "Acerte os alvos rápido!" },
 ];
 
 const defaultGameData = {
@@ -47,6 +50,10 @@ const defaultPairs = {};
 const defaultGridSizes = {};
 
 const defaultQuizCounts = {};
+
+const defaultCatchInitialFallTimes = {};
+
+const defaultWordSearchWordLimits = {};
 
 const normalizePhone = (value) => (value || "").replace(/\D/g, "");
 const calcularPontos = (parcial, total) => {
@@ -86,10 +93,19 @@ export function App() {
     ...defaultQuizCounts,
     ...(initialDatabase.settings.quizQuestionLimits ?? {}),
   });
+  const [catchInitialFallTimes, setCatchInitialFallTimes] = useState({
+    ...defaultCatchInitialFallTimes,
+    ...(initialDatabase.settings.catchInitialFallTimes ?? {}),
+  });
+  const [wordSearchWordLimits, setWordSearchWordLimits] = useState({
+    ...defaultWordSearchWordLimits,
+    ...(initialDatabase.settings.wordSearchWordLimits ?? {}),
+  });
   const [isRemoteMode, setIsRemoteMode] = useState(false);
   const [isSavingScore, setIsSavingScore] = useState(false);
   const [isStartingGame, setIsStartingGame] = useState(false);
   const [isDatabaseHydrated, setIsDatabaseHydrated] = useState(false);
+  const [gameSessionKey, setGameSessionKey] = useState(0);
   const didInitialHydrate = useRef(false);
   useEffect(() => {
     let cancelled = false;
@@ -131,6 +147,14 @@ export function App() {
         ...defaultQuizCounts,
         ...(db.settings.quizQuestionLimits ?? {}),
       });
+      setCatchInitialFallTimes({
+        ...defaultCatchInitialFallTimes,
+        ...(db.settings.catchInitialFallTimes ?? {}),
+      });
+      setWordSearchWordLimits({
+        ...defaultWordSearchWordLimits,
+        ...(db.settings.wordSearchWordLimits ?? {}),
+      });
       setIsDatabaseHydrated(true);
       didInitialHydrate.current = true;
     };
@@ -146,6 +170,86 @@ export function App() {
   }, []);
 
   const effectiveTimeLimit = (gameId) => timeLimits[gameId] ?? 30;
+
+  const wordSearchWordBounds = useMemo(() => {
+    const currentGridSize = Math.max(1, Number(gridSizes.wordsearch ?? 10));
+    const words = Array.isArray(gameData.wordSearchWords)
+      ? gameData.wordSearchWords
+      : [];
+
+    const fittingCount = words.filter(
+      (word) =>
+        String(word ?? "").trim().length > 0 &&
+        String(word).length <= currentGridSize,
+    ).length;
+
+    return {
+      min: fittingCount > 0 ? 1 : 0,
+      max: fittingCount,
+    };
+  }, [gameData.wordSearchWords, gridSizes.wordsearch]);
+
+  const quizQuestionBounds = useMemo(() => {
+    const questions = Array.isArray(gameData.quizQuestions)
+      ? gameData.quizQuestions
+      : [];
+
+    const fittingCount = questions.filter((question) => {
+      const prompt = String(
+        question?.question ?? question?.prompt ?? "",
+      ).trim();
+      const options = Array.isArray(question?.options) ? question.options : [];
+      const answer = String(question?.answer ?? "").trim();
+      return prompt.length > 0 && options.length > 0 && answer.length > 0;
+    }).length;
+
+    return {
+      min: fittingCount > 0 ? 1 : 0,
+      max: fittingCount,
+    };
+  }, [gameData.quizQuestions]);
+
+  useEffect(() => {
+    // Garante limites corretos no menu mesmo antes de selecionar o jogo
+    if (!isDatabaseHydrated) return;
+
+    const preloadWordSearchData = async () => {
+      try {
+        const content = await getGameContent("wordsearch");
+        if (!content) return;
+
+        const words = Array.isArray(content.words)
+          ? content.words.map((w) => w.word)
+          : [];
+
+        setGameData((prev) => ({
+          ...prev,
+          wordSearchWords: words,
+        }));
+      } catch (err) {
+        console.error("Failed to preload wordsearch content:", err);
+      }
+    };
+
+    const preloadQuizData = async () => {
+      try {
+        const content = await getGameContent("quiz");
+        if (!content) return;
+
+        const quiz = Array.isArray(content.quiz) ? content.quiz : [];
+
+        setGameData((prev) => ({
+          ...prev,
+          quizQuestions: quiz,
+        }));
+      } catch (err) {
+        console.error("Failed to preload quiz content:", err);
+      }
+    };
+
+    preloadWordSearchData();
+    preloadQuizData();
+  }, [isDatabaseHydrated]);
   useEffect(() => {
     if (!selectedGame || !isDatabaseHydrated) return;
 
@@ -219,7 +323,7 @@ export function App() {
   const knownLead = normalizedPhone ? leadsByPhone[normalizedPhone] : null;
   const isKnownPhone = Boolean(knownLead);
   const canPlay =
-    normalizedPhone.length >= 10 && (isKnownPhone || name.trim().length > 1);
+    normalizedPhone.length >= 10 && (isKnownPhone || name.trim().length > 0);
   const gameComponents = useMemo(
     () => ({
       memory: (props) => (
@@ -239,6 +343,7 @@ export function App() {
           settings={{
             timeLimitSeconds: props.timeLimitSeconds,
             gridSize: props.gridSize,
+            maxWords: props.wordSearchWordLimit,
           }}
           ranking={props.ranking}
           onScore={props.onScore}
@@ -287,9 +392,25 @@ export function App() {
       catch: (props) => (
         <CatchGame
           data={{}}
-          settings={{ timeLimitSeconds: props.timeLimitSeconds }}
+          settings={{
+            timeLimitSeconds: props.timeLimitSeconds,
+            initialFallTimeSeconds: props.initialFallTimeSeconds,
+          }}
           ranking={props.ranking}
           onScore={props.onScore}
+        />
+      ),
+      whac: (props) => (
+        <WhacGame
+          data={{}}
+          settings={{
+            timeLimitSeconds: props.timeLimitSeconds || 30,
+            gridSize: props.gridSize,
+          }}
+          ranking={props.ranking}
+          onScore={props.onScore}
+          onGameOver={props.onGameOver}
+          onPlayAgain={props.onPlayAgain}
         />
       ),
     }),
@@ -311,15 +432,6 @@ export function App() {
   const sortRanking = (rows) =>
     sortByMetrics(rows, (row) => row.totalPoints ?? 0);
 
-  const currentGameRanking = selectedGame
-    ? sortByMetrics(ranking, (row) => row.perGame?.[selectedGame]?.points ?? 0)
-        .map((row) => ({
-          ...row,
-          totalPoints: row.perGame?.[selectedGame]?.points ?? 0,
-        }))
-        .slice(0, 10)
-    : [];
-
   const mainMenuRanking = sortRanking(ranking).slice(0, 10);
 
   // bulk save desativado pois o backend é a fonte da verdade
@@ -337,6 +449,11 @@ export function App() {
     if (!confirmed) return;
     setScreen("menu");
     setSelectedGame(null);
+  };
+
+  const openAdminHub = () => {
+    setSelectedGame(null);
+    setScreen("admin");
   };
 
   const handleSelectGame = (gameId) => {
@@ -362,6 +479,62 @@ export function App() {
     setQuizQuestionLimits((prev) => ({ ...prev, [gameId]: valueLimit }));
   };
 
+  const handleCatchInitialFallTimeChange = (gameId, valueSeconds) => {
+    const safeValue = Number.isFinite(valueSeconds)
+      ? Math.min(30, Math.max(3, valueSeconds))
+      : 10;
+    setCatchInitialFallTimes((prev) => ({ ...prev, [gameId]: safeValue }));
+  };
+
+  const handleWordSearchWordLimitChange = (gameId, valueLimit) => {
+    const min = wordSearchWordBounds.min;
+    const max = wordSearchWordBounds.max;
+    if (max < 1) {
+      setWordSearchWordLimits((prev) => ({ ...prev, [gameId]: 0 }));
+      return;
+    }
+
+    const numericValue = Number.isFinite(valueLimit) ? valueLimit : min;
+    const safeValue = Math.min(max, Math.max(min, Math.floor(numericValue)));
+    setWordSearchWordLimits((prev) => ({ ...prev, [gameId]: safeValue }));
+  };
+
+  useEffect(() => {
+    const min = wordSearchWordBounds.min;
+    const max = wordSearchWordBounds.max;
+    const currentValue = wordSearchWordLimits.wordsearch;
+
+    const fallback = max < 1 ? 0 : Math.min(5, max);
+    const normalizedCurrent = Number.isFinite(currentValue)
+      ? Math.floor(currentValue)
+      : fallback;
+
+    const clamped =
+      max < 1 ? 0 : Math.min(max, Math.max(min, normalizedCurrent));
+
+    if (currentValue !== clamped) {
+      setWordSearchWordLimits((prev) => ({ ...prev, wordsearch: clamped }));
+    }
+  }, [wordSearchWordBounds, wordSearchWordLimits.wordsearch]);
+
+  useEffect(() => {
+    const min = quizQuestionBounds.min;
+    const max = quizQuestionBounds.max;
+    const currentValue = quizQuestionLimits.quiz;
+
+    const fallback = max < 1 ? 0 : Math.min(5, max);
+    const normalizedCurrent = Number.isFinite(currentValue)
+      ? Math.floor(currentValue)
+      : fallback;
+
+    const clamped =
+      max < 1 ? 0 : Math.min(max, Math.max(min, normalizedCurrent));
+
+    if (currentValue !== clamped) {
+      setQuizQuestionLimits((prev) => ({ ...prev, quiz: clamped }));
+    }
+  }, [quizQuestionBounds, quizQuestionLimits.quiz]);
+
   const handleScore = async ({
     points = 0,
     remainingSeconds = 0,
@@ -380,12 +553,6 @@ export function App() {
     const updateLocalRanking = () => {
       setRanking((prev) => {
         const current = prev.find((row) => row.phone === phoneKey);
-        const nextPerGame = {
-          ...(current?.perGame ?? {}),
-          [gameId]: {
-            points: (current?.perGame?.[gameId]?.points ?? 0) + totalPoints,
-          },
-        };
 
         const nextEntry = {
           id:
@@ -396,7 +563,6 @@ export function App() {
           name: playerName,
           phone: phoneKey,
           totalPoints: (current?.totalPoints ?? 0) + totalPoints,
-          perGame: nextPerGame,
         };
 
         const withoutCurrent = prev.filter((row) => row.phone !== phoneKey);
@@ -412,7 +578,11 @@ export function App() {
 
         return newRanking;
       });
+
+      return totalPoints;
     };
+
+    const optimisticPoints = updateLocalRanking();
 
     if (isRemoteMode) {
       setIsSavingScore(true);
@@ -424,20 +594,34 @@ export function App() {
           remainingSeconds,
           timedOut,
         });
-        if (response && response.top10) {
-          setRanking(response.top10);
-        } else {
-          updateLocalRanking();
+        if (response && Array.isArray(response.top10)) {
+          setRanking((prev) => {
+            const mergedByPhone = new Map(prev.map((row) => [row.phone, row]));
+
+            response.top10.forEach((row) => {
+              const localRow = mergedByPhone.get(row.phone);
+              mergedByPhone.set(row.phone, {
+                ...row,
+                totalPoints:
+                  row.totalPoints ?? row.points ?? localRow?.totalPoints ?? 0,
+              });
+            });
+
+            return sortRanking(Array.from(mergedByPhone.values()));
+          });
         }
       } catch (err) {
         console.error("Falha ao salvar no backend, usando Plano B:", err);
-        updateLocalRanking();
       } finally {
         setIsSavingScore(false);
       }
-    } else {
-      updateLocalRanking();
     }
+
+    return optimisticPoints;
+  };
+
+  const handlePlayAgain = () => {
+    setGameSessionKey((currentKey) => currentKey + 1);
   };
 
   const startGame = async () => {
@@ -448,6 +632,11 @@ export function App() {
       isKnownPhone && knownLead?.name && name !== knownLead.name
         ? knownLead.name
         : name.trim();
+
+    if (!isKnownPhone && finalName.length === 0) {
+      window.alert("Informe o nome para cadastrar um novo jogador.");
+      return;
+    }
 
     if (isRemoteMode) {
       setIsStartingGame(true);
@@ -499,13 +688,20 @@ export function App() {
           <MenuGrid
             games={games}
             timeLimits={timeLimits}
+            catchInitialFallTimes={catchInitialFallTimes}
+            wordSearchWordLimits={wordSearchWordLimits}
+            wordSearchWordBounds={wordSearchWordBounds}
             pairsLimits={pairsLimits}
             gridSizes={gridSizes}
+            quizQuestionBounds={quizQuestionBounds}
             quizQuestionLimits={quizQuestionLimits}
             onTimeLimitChange={handleTimeLimitChange}
+            onCatchInitialFallTimeChange={handleCatchInitialFallTimeChange}
+            onWordSearchWordLimitChange={handleWordSearchWordLimitChange}
             onPairsChange={handlePairsChange}
             onGridSizeChange={handleGridSizeChange}
             onQuizLimitChange={handleQuizLimitChange}
+            onOpenAdminHub={openAdminHub}
             onSelect={handleSelectGame}
           />
           <RankingTable ranking={mainMenuRanking} />
@@ -578,17 +774,27 @@ export function App() {
               }}
             >
               <ActiveGame
+                key={`${selectedGame}-${gameSessionKey}`}
                 onScore={handleScore}
                 timeLimitSeconds={effectiveTimeLimit(selectedGame)}
-                ranking={currentGameRanking}
+                initialFallTimeSeconds={catchInitialFallTimes[selectedGame]}
+                wordSearchWordLimit={wordSearchWordLimits[selectedGame]}
+                ranking={[]}
                 pairCount={pairsLimits[selectedGame]}
                 gridSize={gridSizes[selectedGame]}
                 questionLimit={quizQuestionLimits[selectedGame]}
+                onPlayAgain={handlePlayAgain}
               />
             </div>
           ) : (
             <p>Jogo não encontrado.</p>
           )}
+        </section>
+      )}
+
+      {screen === "admin" && (
+        <section className="game-area">
+          <AdminHub onBackToMenu={goMainMenu} />
         </section>
       )}
     </div>

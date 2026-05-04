@@ -21,8 +21,14 @@ const SoletraRound = require('./soletraRound')(sequelize, DataTypes);
 Player.hasMany(ScoreEvent, { foreignKey: 'playerId' });
 ScoreEvent.belongsTo(Player, { foreignKey: 'playerId' });
 
+Player.hasMany(PlayerGameScore, { foreignKey: 'playerId' });
+PlayerGameScore.belongsTo(Player, { foreignKey: 'playerId' });
+
 Game.hasMany(ScoreEvent, { foreignKey: 'gameId' });
 ScoreEvent.belongsTo(Game, { foreignKey: 'gameId' });
+
+Game.hasMany(PlayerGameScore, { foreignKey: 'gameId' });
+PlayerGameScore.belongsTo(Game, { foreignKey: 'gameId' });
 
 Player.belongsToMany(Game, { through: PlayerGameScore, foreignKey: 'playerId', otherKey: 'gameId' });
 Game.belongsToMany(Player, { through: PlayerGameScore, foreignKey: 'gameId', otherKey: 'playerId' });
@@ -35,6 +41,9 @@ QuizQuestion.belongsTo(Game, { foreignKey: 'gameId' });
 
 Game.hasMany(SoletraRound, { foreignKey: 'gameId' });
 SoletraRound.belongsTo(Game, { foreignKey: 'gameId' });
+
+Game.hasMany(GameSetting, { foreignKey: 'gameId' });
+GameSetting.belongsTo(Game, { foreignKey: 'gameId' });
 
 module.exports = {
     sequelize,

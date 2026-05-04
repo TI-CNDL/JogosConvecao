@@ -1,0 +1,305 @@
+/* ── Variáveis Neon do Componente ─────────────────────────────── */
+.whac-game {
+    --wg-primary: #f60085;
+    --wg-secondary: #0ea5e9;
+    --wg-bg-dark: #021229;
+    --wg-bg-slot: rgba(2, 18, 41, 0.8);
+    --wg-bg-active: rgba(14, 165, 233, 0.1);
+    --wg-icon-color: #f8fafc;
+    --wg-font: "Grift", "Courier New", monospace;
+}
+
+/* ── Container Principal ───────────────────────────────────────── */
+.whac-game {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    font-family: var(--wg-font);
+}
+
+/* ── Tela Inicial ──────────────────────────────────────────────── */
+.whac-game .whac-intro {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 40px 20px;
+    background: rgba(2, 18, 41, 0.6);
+    border: 2px solid var(--wg-secondary);
+    border-radius: 16px;
+    text-align: center;
+}
+
+.whac-game .whac-intro-text {
+    font-size: 18px;
+    color: #cbd5e1;
+    font-weight: 600;
+    letter-spacing: 2px;
+}
+
+.whac-game .whac-target-display {
+    font-size: 120px;
+    filter: drop-shadow(0 0 20px var(--wg-primary)) drop-shadow(0 0 40px rgba(246, 0, 133, 0.5));
+    animation: neon-pulse 1.5s infinite;
+}
+
+.whac-game .whac-intro-hint {
+    font-size: 14px;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.whac-game .whac-start-btn {
+    padding: 12px 40px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* ── Área de Target Info (durante o jogo) ────────────────────── */
+.whac-game .whac-target-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(2, 18, 41, 0.7);
+    border: 2px solid var(--wg-primary);
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(246, 0, 133, 0.4);
+}
+
+.whac-game .whac-target-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--wg-primary);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.whac-game .whac-target-icon {
+    font-size: 48px;
+    filter: drop-shadow(0 0 15px var(--wg-primary));
+    animation: neon-pulse 1.5s infinite;
+}
+
+/* ── Grid 3x3 ──────────────────────────────────────────────────── */
+.whac-game .whac-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    padding: 20px;
+    background: rgba(2, 18, 41, 0.6);
+    border: 2px solid var(--wg-secondary);
+    border-radius: 16px;
+}
+
+/* ── Slot Individual ───────────────────────────────────────────── */
+.whac-game .whac-slot {
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--wg-bg-slot);
+    border: 2px solid var(--wg-secondary);
+    color: var(--wg-icon-color);
+    display: grid;
+    place-items: center;
+    font-size: 36px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    touch-action: manipulation;
+    user-select: none;
+    box-shadow: inset 0 0 10px rgba(14, 165, 233, 0.3);
+}
+
+.whac-game .whac-slot:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    animation: none;
+    animation-fill-mode: none;
+}
+
+/* ── Slot Ativo (com ícone) ────────────────────────────────────── */
+.whac-game .whac-slot.active {
+    background: var(--wg-bg-active);
+    box-shadow: 0 0 20px rgba(14, 165, 233, 0.6), inset 0 0 15px rgba(14, 165, 233, 0.4);
+    animation: popInAndOut 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ── Slot Alvo (com brilho neon rosa) ────────────────────────── */
+.whac-game .whac-slot.target {
+    border-color: var(--wg-primary);
+    box-shadow: 0 0 30px rgba(246, 0, 133, 0.8), inset 0 0 20px rgba(246, 0, 133, 0.3);
+    background: rgba(246, 0, 133, 0.1);
+}
+
+/* ── Slot Clicado (flash verde de confirmação) ───────────────── */
+.whac-game .whac-slot.clicked {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.3);
+    box-shadow: 0 0 30px rgba(34, 197, 94, 0.8), inset 0 0 20px rgba(34, 197, 94, 0.4);
+    transform: scale(0.9);
+    opacity: 0.8;
+    transition: all 0.1s ease;
+    animation: none;
+}
+
+.whac-game .whac-slot.target:active {
+    transform: scale(0.95);
+    box-shadow: 0 0 40px rgba(246, 0, 133, 1), inset 0 0 25px rgba(246, 0, 133, 0.5);
+}
+
+/* ── Ícone do Item ─────────────────────────────────────────────── */
+.whac-game .whac-icon {
+    display: inline-block;
+    animation: iconScale 0.3s ease-out;
+}
+
+.whac-game .whac-slot.target .whac-icon {
+    animation: iconScale 0.3s ease-out, targetGlow 1s ease-in-out;
+}
+
+/* ── Resultado Final ───────────────────────────────────────────── */
+.whac-game .whac-result-box {
+    background: rgba(2, 18, 41, 0.9);
+    border: 2px solid var(--wg-primary);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+    box-shadow: 0 0 30px rgba(246, 0, 133, 0.4);
+}
+
+.whac-game .whac-result-box p {
+    color: #e2e8f0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.whac-game .whac-result-box h3 {
+    color: var(--wg-secondary);
+    font-size: 32px;
+    text-shadow: 0 0 20px rgba(14, 165, 233, 0.6);
+    margin: 12px 0;
+}
+
+.whac-game .whac-result-box button {
+    margin-top: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+/* ── Mini-ranking ──────────────────────────────────────────────── */
+.whac-game .mini-ranking {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px dashed #334155;
+}
+
+.whac-game .mini-ranking .eyebrow {
+    color: #94a3b8;
+    font-size: 12px;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+}
+
+.whac-game .mini-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    color: #cbd5e1;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(52, 81, 104, 0.4);
+}
+
+.whac-game .mini-row span:last-child {
+    color: var(--wg-secondary);
+    font-weight: 700;
+}
+
+/* ── Animações ─────────────────────────────────────────────────── */
+@keyframes popInAndOut {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+
+    20% {
+        transform: scale(1.15);
+        opacity: 1;
+    }
+
+    80% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(0);
+        opacity: 0;
+    }
+}
+
+@keyframes iconScale {
+    0% {
+        transform: scale(0.5);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes targetGlow {
+    0% {
+        filter: drop-shadow(0 0 5px var(--wg-primary));
+        transform: scale(0.9);
+    }
+
+    50% {
+        filter: drop-shadow(0 0 30px var(--wg-primary));
+        transform: scale(1.05);
+    }
+
+    100% {
+        filter: drop-shadow(0 0 15px var(--wg-primary));
+        transform: scale(1);
+    }
+}
+
+@keyframes neon-pulse {
+
+    0%,
+    100% {
+        filter: drop-shadow(0 0 20px var(--wg-primary)) drop-shadow(0 0 40px rgba(246, 0, 133, 0.5));
+    }
+
+    50% {
+        filter: drop-shadow(0 0 30px var(--wg-primary)) drop-shadow(0 0 60px rgba(246, 0, 133, 0.8));
+    }
+}
+
+/* ── Responsivo ────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+    .whac-game .whac-grid {
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .whac-game .whac-target-display {
+        font-size: 80px;
+    }
+
+    .whac-game .whac-slot {
+        font-size: 28px;
+    }
+
+    .whac-game .whac-intro {
+        padding: 30px 16px;
+        gap: 20px;
+    }
+}

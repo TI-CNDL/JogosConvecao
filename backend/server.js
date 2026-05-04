@@ -1,9 +1,144 @@
 const express = require('express');
 const cors = require('cors');
-const { sequelize, Player, Game, GameWord, QuizQuestion, SoletraRound, PlayerGameScore, ScoreEvent } = require('./models');
+const { sequelize, Player, Game, GameWord, QuizQuestion, SoletraRound, PlayerGameScore, ScoreEvent, GameSetting } = require('./models');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+const adminResourceConfig = {
+    players: {
+        model: Player,
+        include: [],
+        attributes: ['name', 'phone', 'totalPoints'],
+        parse: (body) => ({
+            name: body.name ?? null,
+            phone: String(body.phone ?? '').trim(),
+            totalPoints: Number.isFinite(Number(body.totalPoints)) ? Number(body.totalPoints) : 0,
+        }),
+    },
+    games: {
+        model: Game,
+        include: [],
+        attributes: ['code', 'name', 'metadata'],
+        parse: (body) => ({
+            code: String(body.code ?? '').trim(),
+            name: String(body.name ?? '').trim(),
+            metadata: body.metadata ?? null,
+        }),
+    },
+    words: {
+        model: GameWord,
+        include: [{ model: Game, attributes: ['id', 'code', 'name'] }],
+        attributes: ['gameId', 'word', 'meta'],
+        parse: (body) => ({
+            gameId: Number(body.gameId),
+            word: String(body.word ?? '').trim(),
+            meta: body.meta ?? null,
+        }),
+    },
+    quizQuestions: {
+        model: QuizQuestion,
+        include: [{ model: Game, attributes: ['id', 'code', 'name'] }],
+        attributes: ['gameId', 'question', 'options', 'answer'],
+        parse: (body) => ({
+            gameId: Number(body.gameId),
+            question: String(body.question ?? '').trim(),
+            options: body.options ?? null,
+            answer: body.answer ?? null,
+        }),
+    },
+    soletraRounds: {
+        model: SoletraRound,
+        include: [{ model: Game, attributes: ['id', 'code', 'name'] }],
+        attributes: ['gameId', 'word', 'hint'],
+        parse: (body) => ({
+            gameId: Number(body.gameId),
+            word: String(body.word ?? '').trim(),
+            hint: body.hint ?? null,
+        }),
+    },
+    playerGameScores: {
+        model: PlayerGameScore,
+        include: [
+            { model: Player, attributes: ['id', 'name', 'phone'] },
+            { model: Game, attributes: ['id', 'code', 'name'] },
+        ],
+        attributes: ['playerId', 'gameId', 'points', 'lastPlayedAt'],
+        parse: (body) => ({
+            playerId: Number(body.playerId),
+            gameId: Number(body.gameId),
+            points: Number.isFinite(Number(body.points)) ? Number(body.points) : 0,
+            lastPlayedAt: body.lastPlayedAt ? new Date(body.lastPlayedAt) : null,
+        }),
+    },
+    scoreEvents: {
+        model: ScoreEvent,
+        include: [
+            { model: Player, attributes: ['id', 'name', 'phone'] },
+            { model: Game, attributes: ['id', 'code', 'name'] },
+        ],
+        attributes: ['playerId', 'gameId', 'points', 'timeBonus', 'meta'],
+        parse: (body) => ({
+            playerId: Number(body.playerId),
+            gameId: body.gameId ? Number(body.gameId) : null,
+            points: Number.isFinite(Number(body.points)) ? Number(body.points) : 0,
+            timeBonus: Number.isFinite(Number(body.timeBonus)) ? Number(body.timeBonus) : 0,
+            meta: body.meta ?? null,
+        }),
+    },
+    gameSettings: {
+        model: GameSetting,
+        include: [{ model: Game, attributes: ['id', 'code', 'name'] }],
+        attributes: ['gameId', 'key', 'value'],
+        parse: (body) => ({
+            gameId: Number(body.gameId),
+            key: String(body.key ?? '').trim(),
+            value: body.value ?? null,
+        }),
+    },
+};
+
+const getAdminResourceConfig = (resource) => adminResourceConfig[resource] ?? null;
+
+const jsonOrNull = (value) => {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed === '') return null;
+        try {
+            return JSON.parse(trimmed);
+        } catch {
+            return value;
+        }
+    }
+    return value;
+};
+
+const normalizeAdminPayload = (resource, body) => {
+    const config = getAdminResourceConfig(resource);
+    if (!config) return null;
+
+    const parsed = config.parse(body || {});
+    const payload = { ...parsed };
+
+    if ('metadata' in payload) payload.metadata = jsonOrNull(payload.metadata);
+    if ('meta' in payload) payload.meta = jsonOrNull(payload.meta);
+    if ('options' in payload) payload.options = jsonOrNull(payload.options);
+    if ('value' in payload) payload.value = jsonOrNull(payload.value);
+
+    return payload;
+};
+
+const ensureAdminResource = (req, res) => {
+    const { resource } = req.params;
+    const config = getAdminResourceConfig(resource);
+    if (!config) {
+        res.status(404).json({ error: 'resource not found' });
+        return null;
+    }
+    return config;
+};
 
 app.use(express.json());
 app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'] }));
@@ -149,6 +284,116 @@ app.get('/api/gameContent/:gameCode', async (req, res) => {
     const rounds = await SoletraRound.findAll({ where: { gameId: game.id } });
 
     res.json({ game: { id: game.id, code: game.code, name: game.name }, words, quiz, rounds });
+});
+
+app.get('/api/admin/records', async (req, res) => {
+    try {
+        const [players, games, gameWords, quizQuestions, soletraRounds, playerGameScores, scoreEvents, gameSettings] = await Promise.all([
+            Player.findAll({ order: [['id', 'ASC']] }),
+            Game.findAll({ order: [['id', 'ASC']] }),
+            GameWord.findAll({ include: [{ model: Game, attributes: ['id', 'code', 'name'] }], order: [['id', 'ASC']] }),
+            QuizQuestion.findAll({ include: [{ model: Game, attributes: ['id', 'code', 'name'] }], order: [['id', 'ASC']] }),
+            SoletraRound.findAll({ include: [{ model: Game, attributes: ['id', 'code', 'name'] }], order: [['id', 'ASC']] }),
+            PlayerGameScore.findAll({ include: [{ model: Player, attributes: ['id', 'name', 'phone'] }, { model: Game, attributes: ['id', 'code', 'name'] }], order: [['id', 'ASC']] }),
+            ScoreEvent.findAll({ include: [{ model: Player, attributes: ['id', 'name', 'phone'] }, { model: Game, attributes: ['id', 'code', 'name'] }], order: [['id', 'ASC']] }),
+            GameSetting.findAll({ include: [{ model: Game, attributes: ['id', 'code', 'name'] }], order: [['id', 'ASC']] }),
+        ]);
+
+        const plain = (rows) => rows.map((row) => row.get({ plain: true }));
+
+        res.json({
+            counts: {
+                players: players.length,
+                games: games.length,
+                words: gameWords.length,
+                quizQuestions: quizQuestions.length,
+                soletraRounds: soletraRounds.length,
+                playerGameScores: playerGameScores.length,
+                scoreEvents: scoreEvents.length,
+                gameSettings: gameSettings.length,
+            },
+            players: plain(players),
+            games: plain(games),
+            words: plain(gameWords),
+            quizQuestions: plain(quizQuestions),
+            soletraRounds: plain(soletraRounds),
+            playerGameScores: plain(playerGameScores),
+            scoreEvents: plain(scoreEvents),
+            gameSettings: plain(gameSettings),
+        });
+    } catch (err) {
+        console.error('Failed to load admin records', err);
+        return res.status(500).json({ error: 'failed to load admin records' });
+    }
+});
+
+app.post('/api/admin/:resource', async (req, res) => {
+    try {
+        const config = ensureAdminResource(req, res);
+        if (!config) return;
+
+        const payload = normalizeAdminPayload(req.params.resource, req.body);
+        if (!payload) {
+            return res.status(400).json({ error: 'invalid payload' });
+        }
+
+        if (req.params.resource === 'playerGameScores' && payload.lastPlayedAt === null) {
+            payload.lastPlayedAt = new Date();
+        }
+
+        if (req.params.resource === 'scoreEvents' && payload.meta === undefined) {
+            payload.meta = {};
+        }
+
+        const created = await config.model.create(payload);
+        const withInclude = await config.model.findByPk(created.id, { include: config.include });
+        return res.json(withInclude ? withInclude.get({ plain: true }) : created.get({ plain: true }));
+    } catch (err) {
+        console.error('Failed to create admin record', err);
+        return res.status(500).json({ error: 'failed to create record' });
+    }
+});
+
+app.put('/api/admin/:resource/:id', async (req, res) => {
+    try {
+        const config = ensureAdminResource(req, res);
+        if (!config) return;
+
+        const record = await config.model.findByPk(req.params.id);
+        if (!record) {
+            return res.status(404).json({ error: 'record not found' });
+        }
+
+        const payload = normalizeAdminPayload(req.params.resource, req.body);
+        if (!payload) {
+            return res.status(400).json({ error: 'invalid payload' });
+        }
+
+        await record.update(payload);
+        const updated = await config.model.findByPk(record.id, { include: config.include });
+        return res.json(updated ? updated.get({ plain: true }) : record.get({ plain: true }));
+    } catch (err) {
+        console.error('Failed to update admin record', err);
+        return res.status(500).json({ error: 'failed to update record' });
+    }
+});
+
+app.delete('/api/admin/:resource/:id', async (req, res) => {
+    try {
+        const config = ensureAdminResource(req, res);
+        if (!config) return;
+
+        const record = await config.model.findByPk(req.params.id);
+        if (!record) {
+            return res.status(404).json({ error: 'record not found' });
+        }
+
+        await record.destroy();
+        return res.json({ ok: true });
+    } catch (err) {
+        console.error('Failed to delete admin record', err);
+        return res.status(500).json({ error: 'failed to delete record' });
+    }
 });
 
 // optional admin endpoint to reset db (careful)
