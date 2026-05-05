@@ -51,6 +51,8 @@ const defaultGridSizes = {};
 
 const defaultQuizCounts = {};
 
+const defaultSoletraWordLimits = {};
+
 const defaultCatchInitialFallTimes = {};
 
 const defaultWordSearchWordLimits = {};
@@ -92,6 +94,10 @@ export function App() {
   const [quizQuestionLimits, setQuizQuestionLimits] = useState({
     ...defaultQuizCounts,
     ...(initialDatabase.settings.quizQuestionLimits ?? {}),
+  });
+  const [soletraWordLimits, setSoletraWordLimits] = useState({
+    ...defaultSoletraWordLimits,
+    ...(initialDatabase.settings.soletraWordLimits ?? {}),
   });
   const [catchInitialFallTimes, setCatchInitialFallTimes] = useState({
     ...defaultCatchInitialFallTimes,
@@ -146,6 +152,10 @@ export function App() {
       setQuizQuestionLimits({
         ...defaultQuizCounts,
         ...(db.settings.quizQuestionLimits ?? {}),
+      });
+      setSoletraWordLimits({
+        ...defaultSoletraWordLimits,
+        ...(db.settings.soletraWordLimits ?? {}),
       });
       setCatchInitialFallTimes({
         ...defaultCatchInitialFallTimes,
@@ -208,6 +218,30 @@ export function App() {
     };
   }, [gameData.quizQuestions]);
 
+  const soletraWordBounds = useMemo(() => {
+    const rounds = Array.isArray(gameData.soletraRoundData?.exemplos)
+      ? gameData.soletraRoundData.exemplos
+      : [];
+
+    const fittingCount = rounds.reduce((total, round) => {
+      if (Array.isArray(round?.alvos) && round.alvos.length > 0) {
+        return (
+          total +
+          round.alvos.filter(
+            (item) => String(item?.palavra ?? "").trim().length > 0,
+          ).length
+        );
+      }
+
+      return total + (String(round?.word ?? "").trim().length > 0 ? 1 : 0);
+    }, 0);
+
+    return {
+      min: fittingCount > 0 ? 1 : 0,
+      max: fittingCount,
+    };
+  }, [gameData.soletraRoundData]);
+
   useEffect(() => {
     // Garante limites corretos no menu mesmo antes de selecionar o jogo
     if (!isDatabaseHydrated) return;
@@ -246,8 +280,25 @@ export function App() {
       }
     };
 
+    const preloadSoletraData = async () => {
+      try {
+        const content = await getGameContent("soletra");
+        if (!content) return;
+
+        const rounds = Array.isArray(content.rounds) ? content.rounds : [];
+
+        setGameData((prev) => ({
+          ...prev,
+          soletraRoundData: { exemplos: rounds },
+        }));
+      } catch (err) {
+        console.error("Failed to preload soletra content:", err);
+      }
+    };
+
     preloadWordSearchData();
     preloadQuizData();
+    preloadSoletraData();
   }, [isDatabaseHydrated]);
   useEffect(() => {
     if (!selectedGame || !isDatabaseHydrated) return;
@@ -383,7 +434,10 @@ export function App() {
       soletra: (props) => (
         <SoletraGame
           data={{ roundData: gameData.soletraRoundData }}
-          settings={{ timeLimitSeconds: props.timeLimitSeconds }}
+          settings={{
+            timeLimitSeconds: props.timeLimitSeconds,
+            wordLimit: props.wordLimit,
+          }}
           ranking={props.ranking}
           onScore={props.onScore}
         />
@@ -483,6 +537,19 @@ export function App() {
     setQuizQuestionLimits((prev) => ({ ...prev, [gameId]: valueLimit }));
   };
 
+  const handleSoletraWordLimitChange = (gameId, valueLimit) => {
+    const min = soletraWordBounds.min;
+    const max = soletraWordBounds.max;
+    if (max < 1) {
+      setSoletraWordLimits((prev) => ({ ...prev, [gameId]: 0 }));
+      return;
+    }
+
+    const numericValue = Number.isFinite(valueLimit) ? valueLimit : min;
+    const safeValue = Math.min(max, Math.max(min, Math.floor(numericValue)));
+    setSoletraWordLimits((prev) => ({ ...prev, [gameId]: safeValue }));
+  };
+
   const handleCatchInitialFallTimeChange = (gameId, valueSeconds) => {
     const safeValue = Number.isFinite(valueSeconds)
       ? Math.min(30, Math.max(3, valueSeconds))
@@ -538,6 +605,24 @@ export function App() {
       setQuizQuestionLimits((prev) => ({ ...prev, quiz: clamped }));
     }
   }, [quizQuestionBounds, quizQuestionLimits.quiz]);
+
+  useEffect(() => {
+    const min = soletraWordBounds.min;
+    const max = soletraWordBounds.max;
+    const currentValue = soletraWordLimits.soletra;
+
+    const fallback = max < 1 ? 0 : Math.min(3, max);
+    const normalizedCurrent = Number.isFinite(currentValue)
+      ? Math.floor(currentValue)
+      : fallback;
+
+    const clamped =
+      max < 1 ? 0 : Math.min(max, Math.max(min, normalizedCurrent));
+
+    if (currentValue !== clamped) {
+      setSoletraWordLimits((prev) => ({ ...prev, soletra: clamped }));
+    }
+  }, [soletraWordBounds, soletraWordLimits.soletra]);
 
   const handleScore = async ({
     points = 0,
@@ -699,12 +784,15 @@ export function App() {
             gridSizes={gridSizes}
             quizQuestionBounds={quizQuestionBounds}
             quizQuestionLimits={quizQuestionLimits}
+            soletraWordBounds={soletraWordBounds}
+            soletraWordLimits={soletraWordLimits}
             onTimeLimitChange={handleTimeLimitChange}
             onCatchInitialFallTimeChange={handleCatchInitialFallTimeChange}
             onWordSearchWordLimitChange={handleWordSearchWordLimitChange}
             onPairsChange={handlePairsChange}
             onGridSizeChange={handleGridSizeChange}
             onQuizLimitChange={handleQuizLimitChange}
+            onSoletraWordLimitChange={handleSoletraWordLimitChange}
             onOpenAdminHub={openAdminHub}
             onSelect={handleSelectGame}
           />
@@ -787,6 +875,7 @@ export function App() {
                 pairCount={pairsLimits[selectedGame]}
                 gridSize={gridSizes[selectedGame]}
                 questionLimit={quizQuestionLimits[selectedGame]}
+                wordLimit={soletraWordLimits[selectedGame]}
                 onPlayAgain={handlePlayAgain}
               />
             </div>

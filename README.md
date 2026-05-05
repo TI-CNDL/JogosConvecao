@@ -25,6 +25,7 @@ Aplicação web para totem touch com minijogos de convenção em React + Vite.
 - **Omni-Catch (Novo)**: Whac-A-Mole neon com grade 3x3, spawn aleatório de itens, +10 por acerto/-5 por erro, duração 30s, identidade visual neon (#F60085).
 - Labirinto: tamanho configuravel de grade (4x4, 8x8, 10x10).
 - Soletra: modo de 3 palavras-alvo por rodada com colmeia de 7 letras.
+- Soletra: quantidade de palavras configurável no menu do jogo.
 - Soletra: sistema de dicas em 2 niveis com desbloqueio sequencial de palavras.
 - Todos os jogos em modo de rounds continuos durante o tempo configurado.
 - Cesta de Ofertas: azul +10, vermelho -10, especial coletado +50, especial perdido -50.

@@ -10,12 +10,15 @@ export default function MenuGrid({
   gridSizes,
   quizQuestionBounds,
   quizQuestionLimits,
+  soletraWordBounds,
+  soletraWordLimits,
   onTimeLimitChange,
   onCatchInitialFallTimeChange,
   onWordSearchWordLimitChange,
   onPairsChange,
   onGridSizeChange,
   onQuizLimitChange,
+  onSoletraWordLimitChange,
   onOpenAdminHub,
   onSelect,
 }) {
@@ -143,6 +146,25 @@ export default function MenuGrid({
                   onQuizLimitChange(game.id, Number(e.target.value))
                 }
                 disabled={(quizQuestionBounds?.max ?? 0) < 1}
+              />
+            </label>
+          )}
+          {game.id === "soletra" && (
+            <label className="time-field">
+              <span>Qtd. de palavras</span>
+              <input
+                type="number"
+                min={soletraWordBounds?.min ?? 0}
+                max={soletraWordBounds?.max ?? 0}
+                step={1}
+                value={
+                  soletraWordLimits?.[game.id] ??
+                  Math.min(3, soletraWordBounds?.max ?? 3)
+                }
+                onChange={(e) =>
+                  onSoletraWordLimitChange(game.id, Number(e.target.value))
+                }
+                disabled={(soletraWordBounds?.max ?? 0) < 1}
               />
             </label>
           )}

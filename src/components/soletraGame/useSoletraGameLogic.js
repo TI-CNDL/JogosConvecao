@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { shuffle } from "../../utils/array";
 import { normalizeText } from "../../utils/string";
 import { calcularPontos } from "../../utils/scoring";
 
@@ -31,10 +32,23 @@ const DEFAULT_ROUND_DATA = {
 const sortLetters = (word) => normalizeText(word).split("").sort().join("");
 
 const buildHoneycomb = (letters) => {
-    const fallback = ["A", "B", "C", "D", "E", "F", "G"];
-    const safe = [...letters];
-    while (safe.length < 7) safe.push(fallback[safe.length]);
-    return safe.slice(0, 7);
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+    // Remove duplicatas
+    const unique = Array.from(new Set(letters));
+
+    // Se tiver menos de 7, preenche com letras aleatórias do alfabeto
+    while (unique.length < 7) {
+        // Pega uma letra aleatória que não esteja na lista
+        let randomLetter;
+        do {
+            randomLetter = alphabet[Math.floor(Math.random() * alphabet.length)];
+        } while (unique.includes(randomLetter));
+
+        unique.push(randomLetter);
+    }
+
+    return shuffle(unique.slice(0, 7));
 };
 
 /**
@@ -43,6 +57,10 @@ const buildHoneycomb = (letters) => {
  * { word, hint } (formato do backend Sequelize).
  */
 const normalizeRound = (rawRound) => {
+    if (!rawRound) return [];
+
+    const normalizedTargets = [];
+
     // Formato { letras, alvos } (exemplos inline)
     if (rawRound?.letras || rawRound?.alvos) {
         const letters = buildHoneycomb(
@@ -55,38 +73,44 @@ const normalizeRound = (rawRound) => {
                 dica: item.dica || "Sem dica cadastrada.",
             }))
             .filter((item) => item.palavra.length > 0);
-        return { letters, targets };
+
+        for (const target of targets) {
+            normalizedTargets.push({ letters, target });
+        }
+
+        return normalizedTargets;
     }
 
     // Formato { word, hint } (vindo do SoletraRound do Sequelize)
     if (rawRound?.word) {
         const word = normalizeText(rawRound.word);
-        const letters = buildHoneycomb(word.split(""));
-        const targets = [
-            {
+        normalizedTargets.push({
+            letters: buildHoneycomb(word.split("")),
+            target: {
                 palavra: word,
                 dica: rawRound.hint || "Sem dica cadastrada.",
             },
-        ];
-        return { letters, targets };
+        });
     }
 
-    // Fallback
-    const letters = buildHoneycomb([]);
-    return { letters, targets: [] };
+    return normalizedTargets;
 };
 
-const pickRoundFromData = (roundData) => {
+const buildUnitQueue = (roundData, wordLimit) => {
     const fallbackData = roundData && (roundData.exemplos || roundData.letras || roundData.word)
         ? roundData
         : DEFAULT_ROUND_DATA;
 
     const examples = Array.isArray(fallbackData?.exemplos) ? fallbackData.exemplos : [];
-    if (examples.length > 0) {
-        const randomIdx = Math.floor(Math.random() * examples.length);
-        return normalizeRound(examples[randomIdx]);
-    }
-    return normalizeRound(fallbackData);
+    const allUnits = examples.flatMap((example) => normalizeRound(example));
+
+    if (allUnits.length === 0) return [];
+
+    const safeLimit = Number.isFinite(wordLimit) && wordLimit > 0
+        ? Math.min(Math.floor(wordLimit), allUnits.length)
+        : Math.min(3, allUnits.length);
+
+    return shuffle(allUnits).slice(0, safeLimit);
 };
 
 const buildHintLevels = (count) => Array.from({ length: count }, () => 0);
@@ -139,83 +163,91 @@ export default function useSoletraGameLogic({
     onGameOver,
 }) {
     const { roundData = DEFAULT_ROUND_DATA } = data;
-    const { timeLimitSeconds = 30 } = settings;
+    const { timeLimitSeconds = 30, wordLimit = 3 } = settings;
 
-    // ─── Estado da rodada ────────────────────────────────────────────
-    const [activeRound, setActiveRound] = useState(() =>
-        pickRoundFromData(roundData),
+    // ─── Estado da sequência ─────────────────────────────────────────
+    const [sessionUnits, setSessionUnits] = useState(() =>
+        buildUnitQueue(roundData, wordLimit),
     );
+    const [currentUnitIndex, setCurrentUnitIndex] = useState(0);
+    const [completedUnits, setCompletedUnits] = useState(0);
 
-    const letterPool = activeRound.letters;
-    const targets = activeRound.targets;
+    const activeUnit = sessionUnits[currentUnitIndex] ?? null;
+    const letterPool = activeUnit?.letters ?? buildHoneycomb([]);
+    const targets = activeUnit ? [activeUnit.target] : [];
 
     const targetByWord = useMemo(
-        () => new Map(targets.map((item, idx) => [item.palavra, idx])),
-        [targets],
+        () => new Map(sessionUnits.map((unit, idx) => [unit.target.palavra, idx])),
+        [sessionUnits],
     );
 
     // ─── Estado do jogo ──────────────────────────────────────────────
     const [typed, setTyped] = useState("");
     const [foundIndexes, setFoundIndexes] = useState(new Set());
-    const [hintLevels, setHintLevels] = useState(
-        buildHintLevels(targets.length),
-    );
+    const [hintLevels, setHintLevels] = useState([]);
     const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
-    const [finished, setFinished] = useState(false);
+    const [finished, setFinished] = useState(sessionUnits.length === 0);
     const [timedOut, setTimedOut] = useState(false);
     const [reported, setReported] = useState(false);
     const [feedback, setFeedback] = useState("");
     const [lastAttemptColors, setLastAttemptColors] = useState(null);
 
     // ─── Métricas derivadas ──────────────────────────────────────────
-    const currentTargetIndex = useMemo(
-        () => targets.findIndex((_, idx) => !foundIndexes.has(idx)),
-        [targets, foundIndexes],
-    );
+    const currentTargetIndex = currentUnitIndex;
 
-    const currentTarget =
-        currentTargetIndex >= 0 && currentTargetIndex < targets.length
-            ? targets[currentTargetIndex]
-            : null;
+    const currentTarget = activeUnit?.target ?? null;
 
     const currentPoints = calcularPontos(
         foundIndexes.size,
-        targets.length || 1,
+        sessionUnits.length || 1,
     );
 
-    const honeycomb = buildHoneycomb(letterPool);
+    const honeycomb = letterPool;
     const activeWordLength = currentTarget?.palavra.length ?? 7;
     const typedChars = typed.split("");
 
     // ─── Reset / novo jogo ───────────────────────────────────────────
-    const resetRoundState = useCallback(
-        (nextRound) => {
-            setActiveRound(nextRound);
-            setTyped("");
-            setFoundIndexes(new Set());
-            setHintLevels(buildHintLevels(nextRound.targets.length));
-            setTimeLeft(timeLimitSeconds);
-            setFinished(false);
-            setTimedOut(false);
-            setReported(false);
-            setFeedback("");
-            setLastAttemptColors(null);
-        },
-        [timeLimitSeconds],
-    );
+    const resetUnitState = useCallback(() => {
+        setTyped("");
+        setLastAttemptColors(null);
+    }, []);
 
     const resetGame = useCallback(() => {
-        resetRoundState(pickRoundFromData(roundData));
-    }, [roundData, resetRoundState]);
+        const nextUnits = buildUnitQueue(roundData, wordLimit);
+        setSessionUnits(nextUnits);
+        setCurrentUnitIndex(0);
+        setCompletedUnits(0);
+        setTyped("");
+        setFoundIndexes(new Set());
+        setHintLevels(buildHintLevels(nextUnits.length));
+        setTimeLeft(timeLimitSeconds);
+        setFinished(nextUnits.length === 0);
+        setTimedOut(false);
+        setReported(false);
+        setFeedback("");
+        setLastAttemptColors(null);
+    }, [roundData, timeLimitSeconds, wordLimit]);
 
     // Reagir a mudanças nas props de configuração / dados
     useEffect(() => {
         resetGame();
     }, [resetGame]);
 
+    // Sincronizar o tamanho de hintLevels com sessionUnits
+    useEffect(() => {
+        if (sessionUnits.length > 0) {
+            setHintLevels(buildHintLevels(sessionUnits.length));
+        }
+    }, [sessionUnits.length]);
+
+    const advanceToNextUnit = useCallback(() => {
+        setCurrentUnitIndex((prev) => prev + 1);
+        resetUnitState();
+    }, [resetUnitState]);
+
     // ─── Timer ───────────────────────────────────────────────────────
     useEffect(() => {
-        if (finished) return undefined;
+        if (finished || sessionUnits.length === 0) return undefined;
         const id = setInterval(() => {
             setTimeLeft((prev) => {
                 if (prev <= 1) {
@@ -227,19 +259,7 @@ export default function useSoletraGameLogic({
             });
         }, 1000);
         return () => clearInterval(id);
-    }, [finished]);
-
-    // ─── Detectar vitória ────────────────────────────────────────────
-    useEffect(() => {
-        if (
-            targets.length > 0 &&
-            foundIndexes.size === targets.length &&
-            !finished
-        ) {
-            setFinished(true);
-            setFeedback("Palavras concluidas.");
-        }
-    }, [foundIndexes, targets, finished]);
+    }, [finished, sessionUnits.length]);
 
     // ─── Reportar pontuação ──────────────────────────────────────────
     useEffect(() => {
@@ -347,10 +367,17 @@ export default function useSoletraGameLogic({
                 return;
             }
 
-            setFoundIndexes((prev) => new Set(prev).add(matchedIndex));
-            setTyped("");
             setFeedback("Acertou!");
-            setLastAttemptColors(null);
+            setFoundIndexes((prev) => new Set([...prev, matchedIndex]));
+
+            const nextUnitIndex = currentUnitIndex + 1;
+            const hasNextUnit = nextUnitIndex < sessionUnits.length;
+
+            if (hasNextUnit) {
+                advanceToNextUnit();
+            } else {
+                setFinished(true);
+            }
             return;
         }
 
@@ -374,12 +401,19 @@ export default function useSoletraGameLogic({
         targetByWord,
         foundIndexes,
         currentTargetIndex,
+        currentUnitIndex,
+        sessionUnits.length,
+        advanceToNextUnit,
     ]);
 
     // ─── API pública do hook ─────────────────────────────────────────
     return {
         // Constantes
         MAX_HINTS_PER_WORD,
+
+        // Estado da sequência (para renderizar todas as palavras)
+        sessionUnits,
+        currentUnitIndex,
 
         // Estado do jogo
         targets,
@@ -388,6 +422,7 @@ export default function useSoletraGameLogic({
         typedChars,
         foundIndexes,
         hintLevels,
+        totalWords: sessionUnits.length,
         currentTargetIndex,
         currentTarget,
         activeWordLength,
