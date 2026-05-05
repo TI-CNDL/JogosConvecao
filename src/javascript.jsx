@@ -112,6 +112,8 @@ export function App() {
   const [isStartingGame, setIsStartingGame] = useState(false);
   const [isDatabaseHydrated, setIsDatabaseHydrated] = useState(false);
   const [gameSessionKey, setGameSessionKey] = useState(0);
+  const lastSessionPhoneRef = useRef("");
+  const lastSessionNameRef = useRef("");
   const didInitialHydrate = useRef(false);
   useEffect(() => {
     let cancelled = false;
@@ -630,8 +632,10 @@ export function App() {
     timedOut = false,
   }) => {
     const gameId = selectedGame;
-    const phoneKey = normalizedPhone;
-    const playerName = isKnownPhone ? knownLead.name : name;
+    // Use the phone/name captured at the moment the session started
+    const phoneKey = lastSessionPhoneRef.current || normalizedPhone;
+    const playerName =
+      lastSessionNameRef.current || (isKnownPhone ? knownLead.name : name);
     if (!phoneKey || !playerName || !gameId) return;
 
     const timeBonus = timedOut
@@ -749,6 +753,10 @@ export function App() {
     } else if (knownLead?.name && name !== knownLead.name) {
       setName(knownLead.name);
     }
+
+    // Capture phone/name for this session to avoid later edits affecting saved score
+    lastSessionPhoneRef.current = phoneKey;
+    lastSessionNameRef.current = finalName;
 
     setScreen("play");
   };
