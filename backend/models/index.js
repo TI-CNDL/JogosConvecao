@@ -18,10 +18,10 @@ const QuizQuestion = require('./quizQuestion')(sequelize, DataTypes);
 const SoletraRound = require('./soletraRound')(sequelize, DataTypes);
 
 // Associations
-Player.hasMany(ScoreEvent, { foreignKey: 'playerId' });
+Player.hasMany(ScoreEvent, { foreignKey: 'playerId', onDelete: 'CASCADE' });
 ScoreEvent.belongsTo(Player, { foreignKey: 'playerId' });
 
-Player.hasMany(PlayerGameScore, { foreignKey: 'playerId' });
+Player.hasMany(PlayerGameScore, { foreignKey: 'playerId', onDelete: 'CASCADE' });
 PlayerGameScore.belongsTo(Player, { foreignKey: 'playerId' });
 
 Game.hasMany(ScoreEvent, { foreignKey: 'gameId' });

@@ -424,11 +424,20 @@ app.delete('/api/admin/:resource/:id', async (req, res) => {
             return res.status(404).json({ error: 'record not found' });
         }
 
+        if (req.params.resource === 'players') {
+            await ScoreEvent.destroy({ where: { playerId: req.params.id } });
+            await PlayerGameScore.destroy({ where: { playerId: req.params.id } });
+        }
+
         await record.destroy();
         return res.json({ ok: true });
     } catch (err) {
         console.error('Failed to delete admin record', err);
-        return res.status(500).json({ error: 'failed to delete record' });
+        return res.status(500).json({ 
+            error: 'failed to delete record', 
+            details: err.message,
+            stack: err.stack 
+        });
     }
 });
 
@@ -447,7 +456,7 @@ app.post('/api/admin/reset', async (req, res) => {
 
 (async () => {
     try {
-        await sequelize.sync({ alter: true });
+        await sequelize.sync();
         await seedIfNeeded();
 
         app.listen(PORT, () => {
