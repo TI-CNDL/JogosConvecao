@@ -12,9 +12,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-sequelize.authenticate().catch(err => {
-    console.error('DATABASE ERROR:', err);
-});
+sequelize.authenticate().catch(err => {});
 
 // Multer Configuration
 const storage = multer.diskStorage({
@@ -179,8 +177,6 @@ async function seedIfNeeded() {
     const wordsCount = await GameWord.count();
     if (gamesCount > 0 && wordsCount > 0) return;
 
-    console.log('Seeding database with sample games and content...');
-
     // Clear existing to avoid partial duplicates if only words were missing
     if (gamesCount > 0) {
         await GameWord.destroy({ where: {} });
@@ -240,8 +236,6 @@ async function seedIfNeeded() {
     for (const q of quizQs) {
         await QuizQuestion.create({ gameId: created.quiz.id, question: q.question, options: q.options, answer: q.answer });
     }
-
-    console.log('Seeding complete');
 }
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
@@ -365,7 +359,7 @@ app.get('/api/admin/records', async (req, res) => {
             gameSettings: plain(gameSettings),
         });
     } catch (err) {
-        console.error('Failed to load admin records', err);
+
         return res.status(500).json({ error: 'failed to load admin records' });
     }
 });
@@ -499,6 +493,6 @@ app.post('/api/admin/reset', async (req, res) => {
 })();
 
 app.use((err, req, res, next) => {
-    console.error('SERVER ERROR:', err);
+
     res.status(500).json({ error: err.message });
 });

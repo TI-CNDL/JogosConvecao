@@ -835,11 +835,6 @@ function WordsGameTable({
     visibleWords.length > 0 &&
     visibleWords.every((row) => selectedIds.includes(String(row.id)));
 
-  console.log(`DEBUG HTML: Desenhando ${gameLabel} (ID: ${gameId}). Palavras visíveis:`, visibleWords.length);
-  if (visibleWords.length > 0) {
-    console.log(`DEBUG HTML: Exemplo da primeira palavra:`, visibleWords[0]);
-  }
-
   const groupSelectedIds = words
     .filter((row) => selectedIds.includes(String(row.id)))
     .map((row) => String(row.id));
@@ -1023,10 +1018,9 @@ export default function AdminHub({ onBackToMenu }) {
     setError("");
     try {
       const data = await getAdminRecords();
-      console.log("DEBUG: Registros carregados do servidor:", data.counts);
       setRecords(data);
     } catch (err) {
-      console.error(err);
+
       setError("Não foi possível carregar os registros do banco.");
     } finally {
       setLoading(false);
@@ -1160,7 +1154,6 @@ export default function AdminHub({ onBackToMenu }) {
     try {
       const schema = resourceSchemas[modalState.resource];
       const payload = serializeDraft(schema, modalState.draft);
-      console.log("DEBUG FRONTEND: Enviando para o servidor:", payload);
 
       // Validação extra para o recurso de palavras
       if (modalState.resource === "words" && !payload.word && !payload.bulkWords) {
@@ -1170,15 +1163,14 @@ export default function AdminHub({ onBackToMenu }) {
       }
 
       if (modalState.mode === "create") {
-        const response = await createAdminRecord(modalState.resource, payload);
-        console.log("DEBUG FRONTEND: Resposta de criação do servidor:", response);
+        await createAdminRecord(modalState.resource, payload);
       } else {
         await updateAdminRecord(modalState.resource, modalState.rowId, payload);
       }
       await loadRecords();
       closeModal();
     } catch (err) {
-      console.error(err);
+
       setModalError("Não foi possível salvar o registro.");
     } finally {
       setSaving(false);
@@ -1193,7 +1185,7 @@ export default function AdminHub({ onBackToMenu }) {
       await deleteAdminRecord(resource, row.id);
       await loadRecords();
     } catch (err) {
-      console.error(err);
+
       setError("Não foi possível excluir o registro.");
     }
   };
@@ -1212,7 +1204,7 @@ export default function AdminHub({ onBackToMenu }) {
       clearSelection(resource);
       await loadRecords();
     } catch (err) {
-      console.error(err);
+
       setError("Não foi possível excluir alguns registros.");
       await loadRecords();
     }
