@@ -739,7 +739,8 @@ function WordsByGameSection({
   // Agrupar palavras por gameId
   const wordsByGame = new Map();
   for (const word of allWords) {
-    const gid = word.gameId ?? word.Game?.id ?? "sem-jogo";
+    const rawGid = word.gameId ?? word.Game?.id ?? "sem-jogo";
+    const gid = rawGid !== "sem-jogo" ? String(rawGid) : rawGid;
     if (!wordsByGame.has(gid)) wordsByGame.set(gid, []);
     wordsByGame.get(gid).push(word);
   }
@@ -757,7 +758,7 @@ function WordsByGameSection({
   return (
     <>
       {sortedGames.map((game) => {
-        const gameId = game.id;
+        const gameId = String(game.id);
         const words = wordsByGame.get(gameId) ?? [];
         const groupLabel = game.name ?? game.code ?? `#${gameId}`;
 
@@ -833,6 +834,11 @@ function WordsGameTable({
   const allVisibleSelected =
     visibleWords.length > 0 &&
     visibleWords.every((row) => selectedIds.includes(String(row.id)));
+
+  console.log(`DEBUG HTML: Desenhando ${gameLabel} (ID: ${gameId}). Palavras visíveis:`, visibleWords.length);
+  if (visibleWords.length > 0) {
+    console.log(`DEBUG HTML: Exemplo da primeira palavra:`, visibleWords[0]);
+  }
 
   const groupSelectedIds = words
     .filter((row) => selectedIds.includes(String(row.id)))
@@ -919,6 +925,7 @@ function WordsGameTable({
             <thead>
               <tr>
                 <th className="admin-select-head">Selecionar</th>
+                <th>ID</th>
                 <th>Palavra</th>
                 {isMemoryGame && <th>Imagem</th>}
                 <th className="admin-actions-head">Ações</th>
@@ -944,6 +951,7 @@ function WordsGameTable({
                         />
                       </label>
                     </td>
+                    <td>{row.id}</td>
                     <td>{row.word ?? "-"}</td>
                     {isMemoryGame && (
                       <td>
@@ -1015,6 +1023,7 @@ export default function AdminHub({ onBackToMenu }) {
     setError("");
     try {
       const data = await getAdminRecords();
+      console.log("DEBUG: Registros carregados do servidor:", data.counts);
       setRecords(data);
     } catch (err) {
       console.error(err);
@@ -1151,8 +1160,18 @@ export default function AdminHub({ onBackToMenu }) {
     try {
       const schema = resourceSchemas[modalState.resource];
       const payload = serializeDraft(schema, modalState.draft);
+      console.log("DEBUG FRONTEND: Enviando para o servidor:", payload);
+
+      // Validação extra para o recurso de palavras
+      if (modalState.resource === "words" && !payload.word && !payload.bulkWords) {
+        setModalError("Por favor, digite ao menos uma palavra.");
+        setSaving(false);
+        return;
+      }
+
       if (modalState.mode === "create") {
-        await createAdminRecord(modalState.resource, payload);
+        const response = await createAdminRecord(modalState.resource, payload);
+        console.log("DEBUG FRONTEND: Resposta de criação do servidor:", response);
       } else {
         await updateAdminRecord(modalState.resource, modalState.rowId, payload);
       }

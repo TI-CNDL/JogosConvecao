@@ -8,6 +8,14 @@ const { sequelize, Player, Game, GameWord, QuizQuestion, SoletraRound, PlayerGam
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+sequelize.authenticate().catch(err => {
+    console.error('DATABASE ERROR:', err);
+});
+
 // Multer Configuration
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -53,8 +61,8 @@ const adminResourceConfig = {
         attributes: ['gameId', 'word', 'imageUrl', 'meta'],
         parse: (body) => ({
             gameId: Number(body.gameId),
-            word: String(body.word ?? '').trim(),
-            bulkWords: body.bulkWords ? String(body.bulkWords).trim() : null,
+            word: body.word && String(body.word).trim() !== '' ? String(body.word).trim() : null,
+            bulkWords: body.bulkWords && String(body.bulkWords).trim() !== '' ? String(body.bulkWords).trim() : null,
             imageUrl: body.imageUrl ? String(body.imageUrl).trim() : null,
             meta: body.meta ?? null,
         }),
@@ -320,6 +328,9 @@ app.get('/api/gameContent/:gameCode', async (req, res) => {
 
 app.get('/api/admin/records', async (req, res) => {
     try {
+        // Limpeza automática de registros fantasmas (palavras vazias)
+        await GameWord.destroy({ where: { word: ['', null] } });
+
         const [players, games, gameWords, quizQuestions, soletraRounds, playerGameScores, scoreEvents, gameSettings] = await Promise.all([
             Player.findAll({ order: [['id', 'ASC']] }),
             Game.findAll({ order: [['id', 'ASC']] }),
@@ -374,35 +385,33 @@ app.post('/api/admin/:resource', async (req, res) => {
             return res.status(400).json({ error: 'invalid payload' });
         }
 
+        // BULK WORDS LOGIC
+        if (req.params.resource === 'words' && payload.bulkWords) {
+            const words = payload.bulkWords.split(',').map(w => w.trim()).filter(w => w);
+            const createdItems = [];
+            for (const w of words) {
+                const item = await GameWord.create({
+                    gameId: payload.gameId,
+                    word: w,
+                    imageUrl: payload.imageUrl,
+                    meta: payload.meta
+                });
+                const fullItem = await GameWord.findByPk(item.id, { include: config.include });
+                createdItems.push(fullItem.get({ plain: true }));
+            }
+            return res.json(createdItems);
+        }
+
+        if (req.params.resource === 'words' && !payload.word) {
+            return res.status(400).json({ error: 'A palavra é obrigatória.' });
+        }
+
         if (req.params.resource === 'playerGameScores' && payload.lastPlayedAt === null) {
             payload.lastPlayedAt = new Date();
         }
 
         if (req.params.resource === 'scoreEvents' && payload.meta === undefined) {
             payload.meta = {};
-        }
-
-        if (req.params.resource === 'words' && (payload.bulkWords || payload.word)) {
-            const words = [
-                ...(payload.word ? [payload.word] : []),
-                ...(payload.bulkWords ? payload.bulkWords.split(',').map(w => w.trim()).filter(w => w) : [])
-            ];
-            
-            // Se usou o campo bulk, processamos tudo por aqui para garantir IDs únicos
-            if (payload.bulkWords) {
-                const createdItems = [];
-                for (const w of words) {
-                    const item = await GameWord.create({
-                        gameId: payload.gameId,
-                        word: w,
-                        imageUrl: payload.imageUrl,
-                        meta: payload.meta
-                    });
-                    const fullItem = await GameWord.findByPk(item.id, { include: config.include });
-                    createdItems.push(fullItem.get({ plain: true }));
-                }
-                return res.json(createdItems);
-            }
         }
 
         const created = await config.model.create(payload);
@@ -483,11 +492,8 @@ app.post('/api/admin/reset', async (req, res) => {
         await sequelize.sync();
         await seedIfNeeded();
 
-        app.listen(PORT, () => {
-            console.log(`Backend listening on http://localhost:${PORT}`);
-        });
+        app.listen(PORT, '0.0.0.0', () => {});
     } catch (err) {
-        console.error('Failed to start server', err);
         process.exit(1);
     }
 })();
