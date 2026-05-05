@@ -58,6 +58,15 @@ const defaultCatchInitialFallTimes = {};
 const defaultWordSearchWordLimits = {};
 
 const normalizePhone = (value) => (value || "").replace(/\D/g, "");
+const onlyDigits = (value) => (value || "").replace(/\D/g, "").slice(0, 11);
+const formatPhoneDigits = (digits) => {
+  const d = (digits || "").replace(/\D/g, "").slice(0, 11);
+  const len = d.length;
+  if (len === 0) return "";
+  if (len <= 2) return `(${d}`;
+  if (len <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+};
 const calcularPontos = (parcial, total) => {
   if (!total || total <= 0) return 0;
   return Math.floor((Math.max(0, parcial) / total) * 100);
@@ -133,7 +142,10 @@ export function App() {
       setScreen(db.session.screen ?? "menu");
       setSelectedGame(db.session.selectedGame ?? null);
       setName(db.player.name ?? "");
-      setPhone(db.player.phone ?? "");
+      const hydratedPhone = db.player.phone
+        ? formatPhoneDigits(normalizePhone(db.player.phone))
+        : "";
+      setPhone(hydratedPhone);
       setGameData({ ...defaultGameData, ...(db.gameData ?? {}) });
 
       try {
@@ -344,20 +356,21 @@ export function App() {
 
   // Busca o nome do jogador no backend automaticamente ao digitar o telefone
   useEffect(() => {
-    if (!isRemoteMode || normalizedPhone.length < 10) return;
+    if (!isRemoteMode || normalizedPhone.length < 11) return;
 
     let active = true;
-    getPlayer(normalizedPhone)
+    // Send masked phone to identify endpoint (backend expects masked format)
+    const masked = formatPhoneDigits(normalizedPhone);
+    getPlayer(masked)
       .then((player) => {
         if (!active) return;
         if (player && player.name) {
           setLeadsByPhone((prev) => ({
             ...prev,
-            [normalizedPhone]: { name: player.name, phone: normalizedPhone },
+            // keep lookup key as normalized digits
+            [normalizedPhone]: { name: player.name, phone: masked },
           }));
           setName((currentName) => {
-            // Se o usuário já começou a digitar algo diferente, não sobrescreve,
-            // a menos que o campo estivesse vazio
             if (!currentName || currentName === "") return player.name;
             return currentName;
           });
@@ -375,7 +388,7 @@ export function App() {
   const knownLead = normalizedPhone ? leadsByPhone[normalizedPhone] : null;
   const isKnownPhone = Boolean(knownLead);
   const canPlay =
-    normalizedPhone.length >= 10 && (isKnownPhone || name.trim().length > 0);
+    normalizedPhone.length >= 11 && (isKnownPhone || name.trim().length > 0);
   const gameComponents = useMemo(
     () => ({
       memory: (props) => (
@@ -632,8 +645,9 @@ export function App() {
     timedOut = false,
   }) => {
     const gameId = selectedGame;
-    // Use the phone/name captured at the moment the session started
-    const phoneKey = lastSessionPhoneRef.current || normalizedPhone;
+    // Use the phone/name captured at the moment the session started (masked)
+    const phoneKey =
+      lastSessionPhoneRef.current || formatPhoneDigits(normalizedPhone);
     const playerName =
       lastSessionNameRef.current || (isKnownPhone ? knownLead.name : name);
     if (!phoneKey || !playerName || !gameId) return;
@@ -719,8 +733,8 @@ export function App() {
 
   const startGame = async () => {
     if (!canPlay || !selectedGame) return;
-
-    const phoneKey = normalizePhone(phone);
+    const phoneDigits = normalizePhone(phone);
+    const phoneMasked = formatPhoneDigits(phoneDigits);
     const finalName =
       isKnownPhone && knownLead?.name && name !== knownLead.name
         ? knownLead.name
@@ -734,7 +748,7 @@ export function App() {
     if (isRemoteMode) {
       setIsStartingGame(true);
       try {
-        await registerPlayer(finalName, phoneKey);
+        await registerPlayer(finalName, phoneMasked);
       } catch (err) {
         console.error("Falha ao registrar jogador no backend", err);
       } finally {
@@ -745,26 +759,27 @@ export function App() {
     if (!isKnownPhone) {
       setLeadsByPhone((prev) => ({
         ...prev,
-        [phoneKey]: {
+        [phoneDigits]: {
           name: finalName,
-          phone: phoneKey,
+          phone: phoneMasked,
         },
       }));
     } else if (knownLead?.name && name !== knownLead.name) {
       setName(knownLead.name);
     }
 
-    // Capture phone/name for this session to avoid later edits affecting saved score
-    lastSessionPhoneRef.current = phoneKey;
+    // Capture phone/name (masked) for this session to avoid later edits affecting saved score
+    lastSessionPhoneRef.current = phoneMasked;
     lastSessionNameRef.current = finalName;
 
     setScreen("play");
   };
 
   const handlePhoneChange = (value) => {
-    setPhone(value);
-    const normalized = normalizePhone(value);
-    const existing = normalized ? leadsByPhone[normalized] : null;
+    const digits = onlyDigits(value);
+    const masked = formatPhoneDigits(digits);
+    setPhone(masked);
+    const existing = digits ? leadsByPhone[digits] : null;
     if (existing?.name) {
       setName(existing.name);
     } else {
