@@ -13,9 +13,6 @@ const resourceOrder = [
   "words",
   "quizQuestions",
   "soletraRounds",
-  "playerGameScores",
-  "scoreEvents",
-  "gameSettings",
 ];
 
 const resourceLabels = {
@@ -53,19 +50,13 @@ const resourceSchemas = {
     fields: [
       { key: "code", label: "Código", type: "text", required: true },
       { key: "name", label: "Nome", type: "text", required: true },
-      { key: "metadata", label: "Metadata", type: "json" },
     ],
-    emptyDraft: { code: "", name: "", metadata: "{}" },
-    renderColumns: (row) => [
-      row.id,
-      row.code ?? "-",
-      row.name ?? "-",
-      stringify(row.metadata),
-    ],
+    emptyDraft: { code: "", name: "" },
+    renderColumns: (row) => [row.id, row.code ?? "-", row.name ?? "-"],
   },
   words: {
     title: "Palavras",
-    searchPlaceholder: "Palavra ou meta",
+    searchPlaceholder: "Palavra",
     fields: [
       {
         key: "gameId",
@@ -75,14 +66,12 @@ const resourceSchemas = {
         source: "games",
       },
       { key: "word", label: "Palavra", type: "text", required: true },
-      { key: "meta", label: "Meta", type: "json" },
     ],
-    emptyDraft: { gameId: "", word: "", meta: "{}" },
+    emptyDraft: { gameId: "", word: "" },
     renderColumns: (row) => [
       row.id,
       row.Game?.code ?? row.gameId ?? "-",
       row.word ?? "-",
-      stringify(row.meta),
     ],
   },
   quizQuestions: {
@@ -97,22 +86,10 @@ const resourceSchemas = {
         source: "games",
       },
       { key: "question", label: "Pergunta", type: "text", required: true },
-      {
-        key: "options",
-        label: "Opções (JSON array)",
-        type: "json",
-        required: true,
-      },
       { key: "answer", label: "Resposta", type: "text", required: true },
     ],
-    emptyDraft: { gameId: "", question: "", options: '[""]', answer: "" },
-    renderColumns: (row) => [
-      row.id,
-      row.Game?.code ?? row.gameId ?? "-",
-      row.question ?? "-",
-      stringify(row.options),
-      row.answer ?? "-",
-    ],
+    emptyDraft: { gameId: "", question: "", answer: "" },
+    renderColumns: (row) => [row.id, row.question ?? "-", row.answer ?? "-"],
   },
   soletraRounds: {
     title: "Frases / Soletra",
@@ -129,12 +106,7 @@ const resourceSchemas = {
       { key: "hint", label: "Frase / Dica", type: "text" },
     ],
     emptyDraft: { gameId: "", word: "", hint: "" },
-    renderColumns: (row) => [
-      row.id,
-      row.Game?.code ?? row.gameId ?? "-",
-      row.word ?? "-",
-      row.hint ?? "-",
-    ],
+    renderColumns: (row) => [row.id, row.word ?? "-", row.hint ?? "-"],
   },
   playerGameScores: {
     title: "Pontuações por jogo",
@@ -375,6 +347,16 @@ function AdminFormModal({
 
         <form className="admin-form" onSubmit={onSubmit}>
           {fields.map((field) => {
+            // Ocultar campos select pré-preenchidos em modo criação
+            if (
+              mode === "create" &&
+              field.type === "select" &&
+              draft[field.key] &&
+              draft[field.key] !== ""
+            ) {
+              return null;
+            }
+
             if (field.type === "select") {
               const options = sources[field.source] ?? [];
               return (
@@ -477,6 +459,7 @@ function ResourceSection({
   onCreate,
   onEdit,
   onDelete,
+  onDeleteSelected,
 }) {
   const schema = resourceSchemas[resource];
   const allRows = records?.[resource] ?? [];
@@ -512,7 +495,17 @@ function ResourceSection({
           <button
             className="ghost"
             type="button"
-            onClick={() => onCreate(resource)}
+            onClick={() => {
+              const codeMap = {
+                quizQuestions: "quiz",
+                soletraRounds: "soletra",
+              };
+              const gameCode = codeMap[resource];
+              const game = gameCode
+                ? (records.games ?? []).find((g) => g.code === gameCode)
+                : null;
+              onCreate(resource, game ? { gameId: game.id } : {});
+            }}
           >
             Novo registro
           </button>
@@ -531,49 +524,6 @@ function ResourceSection({
             }
           />
         </label>
-
-        {(resource === "words" ||
-          resource === "quizQuestions" ||
-          resource === "soletraRounds" ||
-          resource === "playerGameScores" ||
-          resource === "scoreEvents" ||
-          resource === "gameSettings") && (
-          <label className="admin-filter">
-            <span>Jogo</span>
-            <select
-              value={filters[resource]?.gameId ?? ""}
-              onChange={(event) =>
-                onFilterChange(resource, "gameId", event.target.value)
-              }
-            >
-              <option value="">Todos</option>
-              {(records.games ?? []).map((game) => (
-                <option key={game.id} value={game.id}>
-                  {game.name ?? game.code ?? `#${game.id}`}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        {(resource === "playerGameScores" || resource === "scoreEvents") && (
-          <label className="admin-filter">
-            <span>Usuário</span>
-            <select
-              value={filters[resource]?.playerId ?? ""}
-              onChange={(event) =>
-                onFilterChange(resource, "playerId", event.target.value)
-              }
-            >
-              <option value="">Todos</option>
-              {(records.players ?? []).map((player) => (
-                <option key={player.id} value={player.id}>
-                  {player.name ?? player.phone ?? `#${player.id}`}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
       </div>
 
       {selectedIds.length > 0 && (
@@ -606,6 +556,13 @@ function ResourceSection({
           >
             Limpar seleção
           </button>
+          <button
+            className="ghost danger"
+            type="button"
+            onClick={() => onDeleteSelected(resource, selectedIds)}
+          >
+            Excluir selecionados
+          </button>
         </div>
       )}
 
@@ -617,7 +574,6 @@ function ResourceSection({
             <thead>
               <tr>
                 <th className="admin-select-head">Selecionar</th>
-                <th>ID</th>
                 {resource === "players" && (
                   <>
                     <th>Nome</th>
@@ -630,53 +586,18 @@ function ResourceSection({
                   <>
                     <th>Código</th>
                     <th>Nome</th>
-                    <th>Metadata</th>
-                  </>
-                )}
-                {resource === "words" && (
-                  <>
-                    <th>Jogo</th>
-                    <th>Palavra</th>
-                    <th>Meta</th>
                   </>
                 )}
                 {resource === "quizQuestions" && (
                   <>
-                    <th>Jogo</th>
                     <th>Pergunta</th>
-                    <th>Opções</th>
                     <th>Resposta</th>
                   </>
                 )}
                 {resource === "soletraRounds" && (
                   <>
-                    <th>Jogo</th>
                     <th>Palavra</th>
                     <th>Dica</th>
-                  </>
-                )}
-                {resource === "playerGameScores" && (
-                  <>
-                    <th>Usuário</th>
-                    <th>Jogo</th>
-                    <th>Pontos</th>
-                    <th>Última partida</th>
-                  </>
-                )}
-                {resource === "scoreEvents" && (
-                  <>
-                    <th>Usuário</th>
-                    <th>Jogo</th>
-                    <th>Pontos</th>
-                    <th>Bônus</th>
-                    <th>Meta</th>
-                  </>
-                )}
-                {resource === "gameSettings" && (
-                  <>
-                    <th>Jogo</th>
-                    <th>Chave</th>
-                    <th>Valor</th>
                   </>
                 )}
                 <th className="admin-actions-head">Ações</th>
@@ -702,7 +623,6 @@ function ResourceSection({
                         />
                       </label>
                     </td>
-                    <td>{row.id}</td>
                     {schema
                       .renderColumns(row)
                       .slice(1)
@@ -744,6 +664,262 @@ function ResourceSection({
   );
 }
 
+function WordsByGameSection({
+  records,
+  selection,
+  onToggleSelection,
+  onSelectAllVisible,
+  onClearSelection,
+  onCreate,
+  onEdit,
+  onDelete,
+  onDeleteSelected,
+}) {
+  const allWords = records?.words ?? [];
+  const games = records?.games ?? [];
+  const selectedIds = selection.words ?? [];
+
+  // Agrupar palavras por gameId
+  const wordsByGame = new Map();
+  for (const word of allWords) {
+    const gid = word.gameId ?? word.Game?.id ?? "sem-jogo";
+    if (!wordsByGame.has(gid)) wordsByGame.set(gid, []);
+    wordsByGame.get(gid).push(word);
+  }
+
+  // Jogos que utilizam a tabela de palavras
+  const gamesThatUseWords = ["memory", "wordsearch", "hangman", "labirinto"];
+
+  // Garantir que os jogos que usam palavras apareçam, mesmo sem palavras cadastradas
+  const sortedGames = [...games]
+    .filter((g) => gamesThatUseWords.includes(g.code))
+    .sort((a, b) =>
+      (a.name ?? "").toLowerCase().localeCompare((b.name ?? "").toLowerCase()),
+    );
+
+  return (
+    <>
+      {sortedGames.map((game) => {
+        const gameId = game.id;
+        const words = wordsByGame.get(gameId) ?? [];
+        const groupLabel = game.name ?? game.code ?? `#${gameId}`;
+
+        return (
+          <WordsGameTable
+            key={gameId}
+            gameId={gameId}
+            gameLabel={groupLabel}
+            words={words}
+            selectedIds={selectedIds}
+            onToggleSelection={onToggleSelection}
+            onSelectAllVisible={onSelectAllVisible}
+            onClearSelection={onClearSelection}
+            onCreate={onCreate}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onDeleteSelected={onDeleteSelected}
+          />
+        );
+      })}
+
+      {sortedGames.length === 0 && (
+        <section className="admin-section panel">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Palavras</p>
+              <h2>Nenhum jogo cadastrado</h2>
+            </div>
+          </div>
+          <p className="muted">
+            Cadastre jogos primeiro para adicionar palavras.
+          </p>
+        </section>
+      )}
+    </>
+  );
+}
+
+/**
+ * Tabela independente de palavras para UM jogo.
+ * Cada instância tem seu próprio estado de busca local.
+ */
+function WordsGameTable({
+  gameId,
+  gameLabel,
+  words,
+  selectedIds,
+  onToggleSelection,
+  onSelectAllVisible,
+  onClearSelection,
+  onCreate,
+  onEdit,
+  onDelete,
+  onDeleteSelected,
+}) {
+  const [search, setSearch] = useState("");
+
+  const searchLower = search.trim().toLowerCase();
+  const visibleWords = searchLower
+    ? words.filter((row) => {
+        const text = [row.id, row.word, row.meta]
+          .map((v) => String(v ?? "").toLowerCase())
+          .join(" ");
+        return text.includes(searchLower);
+      })
+    : words;
+
+  const visibleSelected = visibleWords.filter((row) =>
+    selectedIds.includes(String(row.id)),
+  );
+  const allVisibleSelected =
+    visibleWords.length > 0 &&
+    visibleWords.every((row) => selectedIds.includes(String(row.id)));
+
+  const groupSelectedIds = words
+    .filter((row) => selectedIds.includes(String(row.id)))
+    .map((row) => String(row.id));
+
+  return (
+    <section className="admin-section panel">
+      <div className="panel-head">
+        <div>
+          <p className="eyebrow">Palavras</p>
+          <h2>{gameLabel}</h2>
+        </div>
+        <div className="admin-section-actions">
+          <span className="pill">{visibleWords.length} visíveis</span>
+          <span className="pill">{groupSelectedIds.length} selecionados</span>
+          <button
+            className="ghost"
+            type="button"
+            onClick={() => onSelectAllVisible("words", visibleWords)}
+          >
+            {allVisibleSelected ? "Desmarcar visíveis" : "Selecionar visíveis"}
+          </button>
+          <button
+            className="ghost"
+            type="button"
+            onClick={() => onCreate("words", { gameId: Number(gameId) })}
+          >
+            Novo registro
+          </button>
+        </div>
+      </div>
+
+      <div className="admin-filters">
+        <label className="admin-filter admin-filter-wide">
+          <span>Buscar</span>
+          <input
+            type="search"
+            value={search}
+            placeholder="Palavra ou meta"
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
+      </div>
+
+      {groupSelectedIds.length > 0 && (
+        <div className="admin-selection-bar">
+          <div className="admin-selection-summary">
+            <span>{groupSelectedIds.length} selecionado(s)</span>
+            <div className="admin-selection-chips">
+              {visibleSelected.slice(0, 6).map((row) => (
+                <span className="admin-selection-chip" key={row.id}>
+                  {row.word ?? `#${row.id}`}
+                </span>
+              ))}
+              {visibleSelected.length > 6 && (
+                <span className="admin-selection-chip">
+                  +{visibleSelected.length - 6}
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            className="ghost"
+            type="button"
+            onClick={() => onClearSelection("words")}
+          >
+            Limpar seleção
+          </button>
+          <button
+            className="ghost danger"
+            type="button"
+            onClick={() => onDeleteSelected("words", groupSelectedIds)}
+          >
+            Excluir selecionados
+          </button>
+        </div>
+      )}
+
+      {visibleWords.length === 0 ? (
+        <p className="muted">Nenhum registro encontrado.</p>
+      ) : (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th className="admin-select-head">Selecionar</th>
+                <th>Palavra</th>
+                <th className="admin-actions-head">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleWords.map((row) => {
+                const isSelected = selectedIds.includes(String(row.id));
+                return (
+                  <tr key={row.id} className={isSelected ? "is-selected" : ""}>
+                    <td className="admin-select-cell">
+                      <label className="admin-checkbox-wrap">
+                        <input
+                          type="checkbox"
+                          className="admin-select-checkbox"
+                          checked={isSelected}
+                          onChange={() => onToggleSelection("words", row.id)}
+                          aria-label={`Selecionar registro ${row.id}`}
+                        />
+                        <span
+                          className="admin-checkbox-box"
+                          aria-hidden="true"
+                        />
+                      </label>
+                    </td>
+                    <td>{row.word ?? "-"}</td>
+                    <td className="admin-actions-cell">
+                      <div className="admin-row-actions">
+                        <button
+                          className="ghost"
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onEdit("words", row);
+                          }}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          className="ghost danger"
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onDelete("words", row);
+                          }}
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function AdminHub({ onBackToMenu }) {
   const [records, setRecords] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -761,7 +937,8 @@ export default function AdminHub({ onBackToMenu }) {
   const [saving, setSaving] = useState(false);
 
   const loadRecords = async () => {
-    setLoading(true);
+    // Só mostra loading na primeira carga; refreshes são silenciosos
+    if (!records) setLoading(true);
     setError("");
     try {
       const data = await getAdminRecords();
@@ -856,7 +1033,7 @@ export default function AdminHub({ onBackToMenu }) {
     setSelection((current) => ({ ...current, [resource]: [] }));
   };
 
-  const openCreate = (resource) => {
+  const openCreate = (resource, defaults = {}) => {
     const schema = resourceSchemas[resource];
     setModalError("");
     setModalState({
@@ -864,7 +1041,7 @@ export default function AdminHub({ onBackToMenu }) {
       mode: "create",
       resource,
       rowId: null,
-      draft: { ...schema.emptyDraft },
+      draft: { ...schema.emptyDraft, ...defaults },
     });
   };
 
@@ -929,6 +1106,26 @@ export default function AdminHub({ onBackToMenu }) {
     }
   };
 
+  const removeSelectedRecords = async (resource, ids) => {
+    if (!ids || ids.length === 0) return;
+    const confirmed = window.confirm(
+      `Excluir ${ids.length} registro(s) selecionado(s)?`,
+    );
+    if (!confirmed) return;
+
+    try {
+      for (const id of ids) {
+        await deleteAdminRecord(resource, id);
+      }
+      clearSelection(resource);
+      await loadRecords();
+    } catch (err) {
+      console.error(err);
+      setError("Não foi possível excluir alguns registros.");
+      await loadRecords();
+    }
+  };
+
   return (
     <section className="admin-hub">
       <header className="panel admin-hero">
@@ -955,24 +1152,40 @@ export default function AdminHub({ onBackToMenu }) {
         {error && <p className="admin-error">{error}</p>}
       </header>
 
-      {records && !loading && (
+      {records && (
         <div className="admin-sections">
-          {resourceOrder.map((resource) => (
-            <ResourceSection
-              key={resource}
-              resource={resource}
-              records={records}
-              filters={filters}
-              selection={selection}
-              onToggleSelection={toggleSelection}
-              onSelectAllVisible={selectAllVisible}
-              onClearSelection={clearSelection}
-              onFilterChange={updateFilter}
-              onCreate={openCreate}
-              onEdit={openEdit}
-              onDelete={removeRecord}
-            />
-          ))}
+          {resourceOrder.map((resource) =>
+            resource === "words" ? (
+              <WordsByGameSection
+                key="words"
+                records={records}
+                selection={selection}
+                onToggleSelection={toggleSelection}
+                onSelectAllVisible={selectAllVisible}
+                onClearSelection={clearSelection}
+                onCreate={openCreate}
+                onEdit={openEdit}
+                onDelete={removeRecord}
+                onDeleteSelected={removeSelectedRecords}
+              />
+            ) : (
+              <ResourceSection
+                key={resource}
+                resource={resource}
+                records={records}
+                filters={filters}
+                selection={selection}
+                onToggleSelection={toggleSelection}
+                onSelectAllVisible={selectAllVisible}
+                onClearSelection={clearSelection}
+                onFilterChange={updateFilter}
+                onCreate={openCreate}
+                onEdit={openEdit}
+                onDelete={removeRecord}
+                onDeleteSelected={removeSelectedRecords}
+              />
+            ),
+          )}
         </div>
       )}
 

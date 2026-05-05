@@ -188,13 +188,14 @@
     text-align: center;
 }
 
-.admin-actions-head,
-.admin-actions-cell {
-    text-align: right;
+.admin-actions-head {
+    text-align: end !important;
+    padding-right: 24px !important;
 }
 
 .admin-actions-cell {
     min-width: 240px;
+
 }
 
 .admin-checkbox-wrap {
@@ -337,6 +338,38 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 12px;
+}
+
+/* ── Palavras agrupadas por jogo ─────────────────────────────── */
+.admin-words-group {
+    margin-top: 18px;
+}
+
+.admin-words-group:first-of-type {
+    margin-top: 8px;
+}
+
+.admin-words-group-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #38bdf8;
+    margin: 0 0 10px 0;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.18);
+}
+
+.admin-words-group-count {
+    font-size: 12px;
+    font-weight: 600;
+    color: #94a3b8;
+    margin-left: auto;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 @media (max-width: 900px) {

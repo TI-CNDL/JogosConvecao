@@ -80,7 +80,7 @@ export default function MemoryGame({
             {finished && (
                 <div className="result-box" aria-live="polite">
                     <p>{timedOut ? "Tempo esgotado" : "Concluido"}</p>
-                    <h3>Pontos totais: {currentPoints}</h3>
+                    <h3>Pontos totais: {currentPoints + (timedOut ? 0 : timeLeft)}</h3>
                     {ranking.length > 0 && (
                         <div className="mini-ranking">
                             <p className="eyebrow">Ranking deste jogo</p>

@@ -101,7 +101,7 @@ export default function WordSearchGame({
             {(logic.finished || logic.timedOut) && (
                 <div className="ws-result-box" aria-live="polite">
                     <p>{logic.timedOut ? "Tempo esgotado" : "Concluído"}</p>
-                    <h3>Pontos: {logic.currentPoints}</h3>
+                    <h3>Pontos: {logic.currentPoints + (logic.timedOut ? 0 : logic.timeLeft)}</h3>
                     {ranking.length > 0 && (
                         <div className="mini-ranking">
                             <p className="eyebrow">Ranking deste jogo</p>

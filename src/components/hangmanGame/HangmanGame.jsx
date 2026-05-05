@@ -80,7 +80,7 @@ export default function HangmanGame({
                                     ? `Tempo esgotado. A palavra era ${secret}.`
                                     : `A palavra era ${secret}.`}
                     </p>
-                    <h3>Pontos: {currentPoints}</h3>
+                    <h3>Pontos: {currentPoints + (timedOut ? 0 : timeLeft)}</h3>
                     {ranking.length > 0 && (
                         <div className="mini-ranking">
                             <p className="eyebrow">Ranking deste jogo</p>

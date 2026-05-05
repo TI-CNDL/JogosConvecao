@@ -198,9 +198,8 @@ export function App() {
       const prompt = String(
         question?.question ?? question?.prompt ?? "",
       ).trim();
-      const options = Array.isArray(question?.options) ? question.options : [];
       const answer = String(question?.answer ?? "").trim();
-      return prompt.length > 0 && options.length > 0 && answer.length > 0;
+      return prompt.length > 0 && answer.length > 0;
     }).length;
 
     return {
@@ -375,7 +374,7 @@ export function App() {
           data={{ words: gameData.labirintoWords }}
           settings={{
             timeLimitSeconds: props.timeLimitSeconds,
-            gridSize: props.gridSize,
+            gridSize: 8,
           }}
           ranking={props.ranking}
           onScore={props.onScore}
@@ -472,6 +471,11 @@ export function App() {
   };
 
   const handleGridSizeChange = (gameId, valueSize) => {
+    if (gameId === "labirinto") {
+      setGridSizes((prev) => ({ ...prev, [gameId]: 8 }));
+      return;
+    }
+
     setGridSizes((prev) => ({ ...prev, [gameId]: valueSize }));
   };
 

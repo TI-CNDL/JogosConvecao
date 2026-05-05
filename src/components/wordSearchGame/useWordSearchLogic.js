@@ -31,7 +31,15 @@ export default function useWordSearchLogic({
 
     // Processamento de palavras
     const upperWords = useMemo(
-        () => words.map((word) => word.toUpperCase()),
+        () => words
+            .map((word) => 
+                String(word ?? "")
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .replace(/[^a-zA-Z]/g, "")
+                    .toUpperCase()
+            )
+            .filter((w) => w.length > 0),
         [words],
     );
 
@@ -46,7 +54,9 @@ export default function useWordSearchLogic({
 
     const wordsFitting = useMemo(() => {
         const fitting = upperWords.filter((word) => word.length <= computedSize);
-        return maxWords ? fitting.slice(0, maxWords) : fitting;
+        const shuffled = [...fitting].sort(() => Math.random() - 0.5);
+        const unique = [...new Set(shuffled)];
+        return maxWords ? unique.slice(0, maxWords) : unique;
     }, [upperWords, computedSize, maxWords]);
 
     const noWords = wordsFitting.length === 0;

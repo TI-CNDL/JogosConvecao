@@ -21,10 +21,10 @@ const calcularPontosQuiz = (corretas, totalPerguntas) => {
 const normalizeQuestion = (q) => {
     if (!q) return null;
     const prompt = q.prompt || q.question || "";
-    const options = Array.isArray(q.options) ? q.options : [];
     const answer = q.answer || "";
-    if (!prompt || options.length === 0 || !answer) return null;
-    return { prompt, options, answer };
+    // Removida exigência de options, pois vamos auto-gerar as erradas
+    if (!prompt || !answer) return null;
+    return { prompt, answer };
 };
 
 /**
@@ -72,10 +72,20 @@ export default function useQuizGameLogic({
                 ? Math.min(questionLimit, maxQuestions)
                 : maxQuestions;
         pool = pool.slice(0, safeQuestionLimit);
-        return pool.map((q) => ({
-            ...q,
-            options: shuffle(q.options),
-        }));
+
+        // Auto-gerar opções (1 certa + até 3 erradas pegas de outras perguntas)
+        const allAnswers = [...new Set(sanitizedQuestions.map((q) => q.answer))];
+
+        return pool.map((q) => {
+            const wrongAnswers = allAnswers.filter((ans) => ans !== q.answer);
+            const shuffledWrongs = shuffle(wrongAnswers).slice(0, 3);
+            const generatedOptions = shuffle([q.answer, ...shuffledWrongs]);
+
+            return {
+                ...q,
+                options: generatedOptions,
+            };
+        });
     }, [sanitizedQuestions, questionLimit, shuffleKey]);
 
     // ─── Estado ──────────────────────────────────────────────────────

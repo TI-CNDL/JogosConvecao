@@ -88,24 +88,45 @@ const buildPathBetween = (
 ) => {
     const startK = posKey(start.r, start.c);
     const targetK = posKey(target.r, target.c);
+
+    if (startK === targetK) return [start, target];
+
     const queue = [copyPos(start)];
     const seen = new Set([startK]);
     const prev = new Map();
 
-    while (queue.length > 0) {
+    // Timeout protection: max iterations
+    const MAX_ITERATIONS = gridSize * gridSize * 2;
+    let iterations = 0;
+
+    while (queue.length > 0 && iterations < MAX_ITERATIONS) {
+        iterations += 1;
         const current = queue.shift();
         const currentK = posKey(current.r, current.c);
 
         if (currentK === targetK) {
             const path = [copyPos(target)];
             let walk = currentK;
-            while (walk !== startK) {
+            let pathWalkIterations = 0;
+
+            while (walk !== startK && pathWalkIterations < MAX_ITERATIONS) {
+                pathWalkIterations += 1;
                 const [wr, wc] = walk.split("-").map(Number);
                 path.push({ r: wr, c: wc });
                 walk = prev.get(walk);
+
+                // Safety: if walk becomes undefined, break
+                if (!walk) {
+                    path.push(copyPos(start));
+                    break;
+                }
             }
-            path.push(copyPos(start));
-            return path.reverse();
+
+            // Only return if we actually reached start
+            if (walk === startK || path[path.length - 1].r === start.r && path[path.length - 1].c === start.c) {
+                return path.reverse();
+            }
+            return null;
         }
 
         for (const d of DELTAS) {
@@ -230,8 +251,11 @@ const getDirectionName = (from, to) => {
     return "direita";
 };
 
-const generateRound = (words, gridSize) => {
+const generateRound = (words, gridSize, depth = 0) => {
+    const MAX_DEPTH = 10;
+
     if (!words || words.length === 0) return null;
+    if (depth > MAX_DEPTH) return null;
 
     const eligibleWords = words.filter((word) => word.length <= gridSize);
     const pool = eligibleWords.length > 0 ? eligibleWords : words;
@@ -251,7 +275,7 @@ const generateRound = (words, gridSize) => {
     });
 
     const blockedResult = buildBlockedEdges(checkpoints, gridSize);
-    if (!blockedResult) return generateRound(words, gridSize);
+    if (!blockedResult) return generateRound(words, gridSize, depth + 1);
     const { blocked: blockedEdges, solutionPaths } = blockedResult;
 
     checkpoints.forEach((p, idx) => {
@@ -411,13 +435,13 @@ export default function useLabirintoLogic({
                 timedOut,
             };
             onScore?.(payload);
-            
+
             if (timedOut) {
                 onGameOver?.(payload);
             } else {
                 onRoundComplete?.(payload);
             }
-            
+
             setReported(true);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -536,7 +560,15 @@ export default function useLabirintoLogic({
     };
 
     const hasRound = Boolean(round && grid.length > 0);
-    const cellSize = boardSize / boardGridSize;
+    // Calcular o padding dinâmico do board (responsivo: 8px desktop, 4px mobile)
+    let boardPadding = 16; // padrão: 8px em cada lado (8*2)
+    if (boardRef.current) {
+        const computed = window.getComputedStyle(boardRef.current);
+        const paddingValue = parseFloat(computed.padding);
+        boardPadding = paddingValue * 2; // multiplicar por 2 para total (esquerda + direita ou top + bottom)
+    }
+    const effectiveBoardSize = Math.max(boardSize - boardPadding, 100);
+    const cellSize = effectiveBoardSize / boardGridSize;
 
     const wallSegments = useMemo(() => {
         if (!round) return [];
@@ -549,7 +581,7 @@ export default function useLabirintoLogic({
                     const a = { r, c };
                     const b = { r, c: c + 1 };
                     if (blockedEdges.has(edgeKey(a, b))) {
-                        segments.push({ key: `v-${r}-${c}`, x: (c + 1) * cellSize - t / 2, y: r * cellSize + cellSize * 0.14, width: t, height: cellSize * 0.72 });
+                        segments.push({ key: `v-${r}-${c}`, x: (c + 1) * cellSize - t / 2, y: r * cellSize, width: t, height: cellSize });
                     }
                 }
 
@@ -557,7 +589,7 @@ export default function useLabirintoLogic({
                     const a = { r, c };
                     const b = { r: r + 1, c };
                     if (blockedEdges.has(edgeKey(a, b))) {
-                        segments.push({ key: `h-${r}-${c}`, x: c * cellSize + cellSize * 0.14, y: (r + 1) * cellSize - t / 2, width: cellSize * 0.72, height: t });
+                        segments.push({ key: `h-${r}-${c}`, x: c * cellSize, y: (r + 1) * cellSize - t / 2, width: cellSize, height: t });
                     }
                 }
             }

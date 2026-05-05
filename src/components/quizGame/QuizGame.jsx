@@ -56,7 +56,7 @@ export default function QuizGame({
                                 ? "Sem perguntas para jogar"
                                 : "Placar final"}
                     </p>
-                    <h3>Pontos: {currentPoints}</h3>
+                    <h3>Pontos: {currentPoints + (timedOut ? 0 : timeLeft)}</h3>
 
                     {/* Gabarito */}
                     {randomizedQuestions.length > 0 && (
