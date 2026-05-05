@@ -74,12 +74,14 @@ const calcularPontos = (parcial, total) => {
 
 export function App() {
   const [initialDatabase] = useState(() => getSeedDatabase());
-  const [screen, setScreen] = useState(
-    initialDatabase.session.screen ?? "menu",
-  );
-  const [selectedGame, setSelectedGame] = useState(
-    initialDatabase.session.selectedGame ?? null,
-  );
+  const [screen, setScreen] = useState(() => {
+    const saved = localStorage.getItem("app_screen");
+    return saved || (initialDatabase.session.screen ?? "menu");
+  });
+  const [selectedGame, setSelectedGame] = useState(() => {
+    const saved = localStorage.getItem("app_selectedGame");
+    return saved || (initialDatabase.session.selectedGame ?? null);
+  });
   const [name, setName] = useState(initialDatabase.player.name ?? "");
   const [phone, setPhone] = useState(initialDatabase.player.phone ?? "");
   const [gameData, setGameData] = useState({
@@ -139,8 +141,6 @@ export function App() {
         return;
       }
 
-      setScreen(db.session.screen ?? "menu");
-      setSelectedGame(db.session.selectedGame ?? null);
       setName(db.player.name ?? "");
       const hydratedPhone = db.player.phone
         ? formatPhoneDigits(normalizePhone(db.player.phone))
@@ -192,6 +192,16 @@ export function App() {
       }
     };
   }, []);
+
+  // Persistência de Sessão
+  useEffect(() => {
+    localStorage.setItem("app_screen", screen);
+    if (selectedGame) {
+      localStorage.setItem("app_selectedGame", selectedGame);
+    } else {
+      localStorage.removeItem("app_selectedGame");
+    }
+  }, [screen, selectedGame]);
 
   const effectiveTimeLimit = (gameId) => timeLimits[gameId] ?? 30;
 

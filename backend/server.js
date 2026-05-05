@@ -54,6 +54,7 @@ const adminResourceConfig = {
         parse: (body) => ({
             gameId: Number(body.gameId),
             word: String(body.word ?? '').trim(),
+            bulkWords: body.bulkWords ? String(body.bulkWords).trim() : null,
             imageUrl: body.imageUrl ? String(body.imageUrl).trim() : null,
             meta: body.meta ?? null,
         }),
@@ -379,6 +380,29 @@ app.post('/api/admin/:resource', async (req, res) => {
 
         if (req.params.resource === 'scoreEvents' && payload.meta === undefined) {
             payload.meta = {};
+        }
+
+        if (req.params.resource === 'words' && (payload.bulkWords || payload.word)) {
+            const words = [
+                ...(payload.word ? [payload.word] : []),
+                ...(payload.bulkWords ? payload.bulkWords.split(',').map(w => w.trim()).filter(w => w) : [])
+            ];
+            
+            // Se usou o campo bulk, processamos tudo por aqui para garantir IDs únicos
+            if (payload.bulkWords) {
+                const createdItems = [];
+                for (const w of words) {
+                    const item = await GameWord.create({
+                        gameId: payload.gameId,
+                        word: w,
+                        imageUrl: payload.imageUrl,
+                        meta: payload.meta
+                    });
+                    const fullItem = await GameWord.findByPk(item.id, { include: config.include });
+                    createdItems.push(fullItem.get({ plain: true }));
+                }
+                return res.json(createdItems);
+            }
         }
 
         const created = await config.model.create(payload);

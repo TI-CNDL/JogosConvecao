@@ -1,4 +1,4 @@
-const { Player, ScoreEvent, PlayerGameScore } = require('./models');
+ const { Player, ScoreEvent, PlayerGameScore } = require('./models');
 
 async function debugDelete(playerId) {
     console.log(`--- Iniciando Debug de Exclusão para Player ID: ${playerId} ---`);

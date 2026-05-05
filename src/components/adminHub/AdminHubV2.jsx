@@ -63,13 +63,13 @@ const resourceSchemas = {
         key: "gameId",
         label: "Jogo",
         type: "select",
-        required: true,
         source: "games",
       },
-      { key: "word", label: "Palavra", type: "text", required: true },
+      { key: "word", label: "Palavra (Individual)", type: "text" },
+      { key: "bulkWords", label: "Palavras em Massa (separadas por vírgula)", type: "textarea" },
       { key: "imageUrl", label: "Imagem", type: "image" },
     ],
-    emptyDraft: { gameId: "", word: "", imageUrl: "" },
+    emptyDraft: { gameId: "", word: "", bulkWords: "", imageUrl: "" },
     renderColumns: (row) => [
       row.id,
       row.Game?.code ?? row.gameId ?? "-",
@@ -318,6 +318,7 @@ const filterRows = (rows, filters) => {
 function AdminFormModal({
   open,
   title,
+  resource,
   mode,
   draft,
   fields,
@@ -419,7 +420,28 @@ function AdminFormModal({
               );
             }
 
+            if (field.type === "textarea") {
+              return (
+                <label className="time-field" key={field.key}>
+                  <span>{field.label}</span>
+                  <textarea
+                    value={draft[field.key] ?? ""}
+                    onChange={(event) => onChange(field.key, event.target.value)}
+                    required={field.required}
+                    style={{ minHeight: '80px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '10px', borderRadius: '4px' }}
+                  />
+                </label>
+              );
+            }
+
             if (field.type === "image") {
+              // Somente mostra o campo de imagem para o Jogo da Memória
+              if (resource === "words") {
+                const games = sources["games"] ?? [];
+                const selectedGame = games.find(g => String(g.id) === String(draft.gameId));
+                if (selectedGame?.code !== "memory") return null;
+              }
+
               return (
                 <label className="time-field" key={field.key}>
                   <span>{field.label}</span>
@@ -744,6 +766,7 @@ function WordsByGameSection({
             key={gameId}
             gameId={gameId}
             gameLabel={groupLabel}
+            isMemoryGame={game.code === "memory"}
             words={words}
             selectedIds={selectedIds}
             onToggleSelection={onToggleSelection}
@@ -781,6 +804,7 @@ function WordsByGameSection({
 function WordsGameTable({
   gameId,
   gameLabel,
+  isMemoryGame,
   words,
   selectedIds,
   onToggleSelection,
@@ -896,7 +920,7 @@ function WordsGameTable({
               <tr>
                 <th className="admin-select-head">Selecionar</th>
                 <th>Palavra</th>
-                <th>Imagem</th>
+                {isMemoryGame && <th>Imagem</th>}
                 <th className="admin-actions-head">Ações</th>
               </tr>
             </thead>
@@ -921,17 +945,19 @@ function WordsGameTable({
                       </label>
                     </td>
                     <td>{row.word ?? "-"}</td>
-                    <td>
-                      {row.imageUrl ? (
-                        <img
-                          src={row.imageUrl.startsWith('http') ? row.imageUrl : `http://localhost:4000${row.imageUrl.startsWith('/') ? '' : '/'}${row.imageUrl}`}
-                          alt="preview"
-                          style={{ width: '40px', height: '40px', objectFit: 'contain' }}
-                        />
-                      ) : (
-                        "-"
-                      )}
-                    </td>
+                    {isMemoryGame && (
+                      <td>
+                        {row.imageUrl ? (
+                          <img
+                            src={row.imageUrl.startsWith('http') ? row.imageUrl : `http://localhost:4000${row.imageUrl.startsWith('/') ? '' : '/'}${row.imageUrl}`}
+                            alt="preview"
+                            style={{ width: '40px', height: '40px', objectFit: 'contain' }}
+                          />
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                    )}
                     <td className="admin-actions-cell">
                       <div className="admin-row-actions">
                         <button
@@ -1249,6 +1275,7 @@ export default function AdminHub({ onBackToMenu }) {
             ? resourceSchemas[modalState.resource].title
             : "Registro"
         }
+        resource={modalState.resource}
         mode={modalState.mode}
         draft={modalState.draft}
         fields={
