@@ -163,7 +163,7 @@ export default function useWhacGameLogic({
 
         setGameStarted(true);
         setGameActive(true);
-        setFinalScore(null);
+        setFinalScore(0);
         setTimeLeft(timeLimitSeconds);
         scoreRef.current = 0;
         targetsHitRef.current = 0;
@@ -221,15 +221,8 @@ export default function useWhacGameLogic({
     useEffect(() => {
         if (!finished || reported) return;
 
-        const appeared = targetsAppearedRef.current;
-        const hits = targetsHitRef.current;
-        const wrongs = wrongClicksRef.current;
-        const proportional = appeared > 0
-            ? Math.round((hits / appeared) * 100)
-            : 0;
-        const finalPts = Math.max(0, proportional - (wrongs * 5));
-
-        scoreRef.current = finalPts;
+        // Usar a pontuação acumulada em scoreRef (já atualizada em tempo real)
+        const finalPts = Math.max(0, scoreRef.current);
         setFinalScore(finalPts);
 
         const payload = { points: finalPts, timedOut: false };
@@ -248,8 +241,14 @@ export default function useWhacGameLogic({
 
             if (clickedSlot.isTarget) {
                 targetsHitRef.current += 1;
+                // Pontuação por acerto
+                scoreRef.current += 10;
+                setFinalScore(scoreRef.current);
             } else {
                 wrongClicksRef.current += 1;
+                // Penalidade por erro
+                scoreRef.current = Math.max(0, scoreRef.current - 5);
+                setFinalScore(scoreRef.current);
             }
 
             // Marcar como clicado (verde) por 250ms, depois remover
