@@ -107,8 +107,8 @@ export default function WhacGame({
       {/* ── Resultado final ── */}
       {logic.finished && (
         <div className="whac-result-box" aria-live="polite">
-          <p>Tempo Esgotado!</p>
-          <h3>Pontos Finais: {logic.score}</h3>
+          <p>{logic.timeLeft > 0 ? "Concluido!" : "Tempo Esgotado!"}</p>
+          <h3>Pontos Finais: {logic.score + (logic.timeLeft > 0 ? logic.timeLeft : 0)}</h3>
 
           {/* Mini-ranking */}
           {ranking.length > 0 && (

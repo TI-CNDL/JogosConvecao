@@ -197,6 +197,7 @@ async function seedIfNeeded() {
             { code: 'quiz', name: 'Quiz' },
             { code: 'memory', name: 'Memory' },
             { code: 'labirinto', name: 'Labirinto' },
+            { code: 'whac', name: 'Omni-Catch' },
         ];
         for (const g of gameDefs) {
             await Game.findOrCreate({ where: { code: g.code }, defaults: { name: g.name } });
@@ -283,7 +284,7 @@ app.post('/api/scores', async (req, res) => {
     const game = await Game.findOne({ where: { code: gameCode } });
     const gameId = game ? game.id : null;
 
-    const timeBonus = timedOut ? 0 : Math.max(0, Math.floor(remainingSeconds) * 5);
+    const timeBonus = timedOut ? 0 : Math.max(0, Math.floor(remainingSeconds));
     const addedPoints = Math.max(0, Math.round(points)) + timeBonus;
 
     // record event

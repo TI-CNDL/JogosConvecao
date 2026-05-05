@@ -129,11 +129,16 @@ export default function useWhacGameLogic({
         if (slotIndex === null) return;
 
         const tgtLeft = targetQuotaRef.current;
-        const hasTargetActive = currentSlots.some((slot) => slot.isTarget);
         let isTarget = false;
 
-        if (!hasTargetActive && tgtLeft > 0) {
-            isTarget = Math.random() < 0.25;
+        if (tgtLeft > 0) {
+            const elapsed = timeLimitSeconds - timeLeftRef.current;
+            const progress = elapsed / (timeLimitSeconds || 1);
+            // Se estamos atrasados na entrega, aumenta a chance para 80%
+            const expectedQuotaUsed = progress * computeTargetQuota(timeLimitSeconds);
+            const isBehind = (computeTargetQuota(timeLimitSeconds) - tgtLeft) < expectedQuotaUsed;
+            
+            isTarget = Math.random() < (isBehind ? 0.80 : 0.40);
         }
 
         if (isTarget) {
@@ -221,15 +226,29 @@ export default function useWhacGameLogic({
     useEffect(() => {
         if (!finished || reported) return;
 
-        // Usar a pontuação acumulada em scoreRef (já atualizada em tempo real)
-        const finalPts = Math.max(0, scoreRef.current);
+        // Calcula a porcentagem de acertos baseada na cota inicial
+        const totalPlanned = computeTargetQuota(timeLimitSeconds);
+        const hitCount = targetsHitRef.current;
+        
+        // Cada acerto vale (100 / totalPlanned) pontos. 
+        // Se acertar todos, terá 100 pontos base.
+        const baseScore = Math.floor((hitCount / (totalPlanned || 1)) * 100);
+        const finalPts = Math.max(0, baseScore);
+        
         setFinalScore(finalPts);
 
-        const payload = { points: finalPts, timedOut: false };
+        const payload = { 
+            game: "Omni-Catch",
+            score: finalPts,
+            points: finalPts, 
+            remainingSeconds: Math.max(0, timeLeftRef.current),
+            timedOut: timeLeftRef.current <= 0 
+        };
+        
         onScore?.(payload);
         onGameOver?.(payload);
         setReported(true);
-    }, [finished, reported, onScore, onGameOver]);
+    }, [finished, reported, onScore, onGameOver, timeLimitSeconds]);
 
     // ─── Handle click ────────────────────────────────────────────────
     const handleSlotClick = useCallback(
@@ -239,16 +258,26 @@ export default function useWhacGameLogic({
 
             clearHideTimer(clickedSlot.id);
 
+            const totalPlanned = computeTargetQuota(timeLimitSeconds);
+
             if (clickedSlot.isTarget) {
                 targetsHitRef.current += 1;
-                // Pontuação por acerto
-                scoreRef.current += 10;
-                setFinalScore(scoreRef.current);
+                // Pontuação em tempo real baseada na porcentagem do total
+                const currentPct = Math.floor((targetsHitRef.current / (totalPlanned || 1)) * 100);
+                setFinalScore(currentPct);
+                
+                // Se acertou todos os alvos planejados, finaliza o jogo antecipadamente
+                if (targetsHitRef.current >= totalPlanned) {
+                    setFinished(true);
+                    setGameActive(false);
+                    isGameRunningRef.current = false;
+                }
             } else {
                 wrongClicksRef.current += 1;
-                // Penalidade por erro
-                scoreRef.current = Math.max(0, scoreRef.current - 5);
-                setFinalScore(scoreRef.current);
+                // Penalidade opcional ou apenas manter a porcentagem atual
+                // Vou manter o cálculo de porcentagem, o erro apenas não soma pontos
+                const currentPct = Math.floor((targetsHitRef.current / (totalPlanned || 1)) * 100);
+                setFinalScore(currentPct);
             }
 
             // Marcar como clicado (verde) por 250ms, depois remover

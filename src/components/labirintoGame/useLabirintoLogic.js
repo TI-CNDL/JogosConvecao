@@ -646,6 +646,8 @@ export default function useLabirintoLogic({
         boardSize,
         cellSize,
         hasRound,
+        shouldMarkFirstCheckpoint,
+        boardGridSize,
         collectedLetters,
         wallSegments,
         trailSegments,
@@ -657,5 +659,6 @@ export default function useLabirintoLogic({
         resetAttempt,
         newGame,
         showHint,
+        posKey,
     };
 }
