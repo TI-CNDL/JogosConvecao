@@ -47,10 +47,11 @@ export default function useMemoryGameLogic({
                 0,
                 Math.max(0, Math.min(maxPairs, symbols.length)),
             );
-            const doubled = selected.flatMap((label) => [label, label]);
-            return shuffle(doubled, rng).map((label, index) => ({
-                id: `${label}-${index}`,
-                label,
+            const doubled = selected.flatMap((s) => [s, s]);
+            return shuffle(doubled, rng).map((s, index) => ({
+                id: `${s.id || s.word}-${index}`,
+                label: s.word,
+                imageUrl: s.imageUrl,
                 matched: false,
             }));
         },
@@ -172,7 +173,10 @@ export default function useMemoryGameLogic({
                 const [first, second] = next.map((id) =>
                     cards.find((c) => c.id === id),
                 );
-                const isMatch = first.label === second.label;
+                // Match by imageUrl if present, otherwise by label
+                const isMatch = (first.imageUrl && second.imageUrl) 
+                    ? first.imageUrl === second.imageUrl 
+                    : first.label === second.label;
                 setTimeout(() => {
                     setCards((prev) =>
                         prev.map((c) =>

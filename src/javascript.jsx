@@ -326,7 +326,7 @@ export function App() {
 
         // Map game code to our state keys
         const dataMap = {
-          memory: { key: "memorySymbols", data: words.map((w) => w.word) },
+          memory: { key: "memorySymbols", data: words },
           wordsearch: {
             key: "wordSearchWords",
             data: words.map((w) => w.word),

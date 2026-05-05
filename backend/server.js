@@ -1,9 +1,30 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const { sequelize, Player, Game, GameWord, QuizQuestion, SoletraRound, PlayerGameScore, ScoreEvent, GameSetting } = require('./models');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+// Multer Configuration
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const uploadPath = path.join(__dirname, '..', 'public', 'images');
+        if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        cb(null, uploadPath);
+    },
+    filename: (req, file, cb) => {
+        const timestamp = Date.now();
+        const ext = path.extname(file.originalname);
+        const name = path.basename(file.originalname, ext);
+        cb(null, `${timestamp}-${name}${ext}`);
+    }
+});
+const upload = multer({ storage });
 
 const adminResourceConfig = {
     players: {
@@ -29,10 +50,11 @@ const adminResourceConfig = {
     words: {
         model: GameWord,
         include: [{ model: Game, attributes: ['id', 'code', 'name'] }],
-        attributes: ['gameId', 'word', 'meta'],
+        attributes: ['gameId', 'word', 'imageUrl', 'meta'],
         parse: (body) => ({
             gameId: Number(body.gameId),
             word: String(body.word ?? '').trim(),
+            imageUrl: body.imageUrl ? String(body.imageUrl).trim() : null,
             meta: body.meta ?? null,
         }),
     },
@@ -145,24 +167,33 @@ app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'] }));
 
 async function seedIfNeeded() {
     const gamesCount = await Game.count();
-    if (gamesCount > 0) return;
+    const wordsCount = await GameWord.count();
+    if (gamesCount > 0 && wordsCount > 0) return;
 
     console.log('Seeding database with sample games and content...');
 
-    const gameDefs = [
-        { code: 'hangman', name: 'Hangman' },
-        { code: 'wordsearch', name: 'Word Search' },
-        { code: 'soletra', name: 'Soletra' },
-        { code: 'quiz', name: 'Quiz' },
-        { code: 'memory', name: 'Memory' },
-        { code: 'labirinto', name: 'Labirinto' },
-    ];
-
-    const created = {};
-    for (const g of gameDefs) {
-        const gmodel = await Game.create({ code: g.code, name: g.name });
-        created[g.code] = gmodel;
+    // Clear existing to avoid partial duplicates if only words were missing
+    if (gamesCount > 0) {
+        await GameWord.destroy({ where: {} });
+        await QuizQuestion.destroy({ where: {} });
+        await SoletraRound.destroy({ where: {} });
+    } else {
+        const gameDefs = [
+            { code: 'hangman', name: 'Hangman' },
+            { code: 'wordsearch', name: 'Word Search' },
+            { code: 'soletra', name: 'Soletra' },
+            { code: 'quiz', name: 'Quiz' },
+            { code: 'memory', name: 'Memory' },
+            { code: 'labirinto', name: 'Labirinto' },
+        ];
+        for (const g of gameDefs) {
+            await Game.findOrCreate({ where: { code: g.code }, defaults: { name: g.name } });
+        }
     }
+
+    const createdList = await Game.findAll();
+    const created = {};
+    createdList.forEach(g => { created[g.code] = g; });
 
     const words = ['LOGISTICA', 'SKU', 'PIX', 'ENTREGA', 'INVENTARIO', 'BARRAS', 'ETIQUETA', 'FRETE', 'PDV', 'SCAN'];
     for (const w of words) {
@@ -327,6 +358,11 @@ app.get('/api/admin/records', async (req, res) => {
     }
 });
 
+app.post('/api/admin/upload', upload.single('image'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    res.json({ filename: req.file.filename, url: `/images/${req.file.filename}` });
+});
+
 app.post('/api/admin/:resource', async (req, res) => {
     try {
         const config = ensureAdminResource(req, res);
@@ -411,7 +447,7 @@ app.post('/api/admin/reset', async (req, res) => {
 
 (async () => {
     try {
-        await sequelize.sync();
+        await sequelize.sync({ alter: true });
         await seedIfNeeded();
 
         app.listen(PORT, () => {
@@ -422,3 +458,8 @@ app.post('/api/admin/reset', async (req, res) => {
         process.exit(1);
     }
 })();
+
+app.use((err, req, res, next) => {
+    console.error('SERVER ERROR:', err);
+    res.status(500).json({ error: err.message });
+});

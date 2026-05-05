@@ -4,6 +4,7 @@ import {
   deleteAdminRecord,
   getAdminRecords,
   updateAdminRecord,
+  uploadImage,
 } from "../../lib/appDatabase";
 import "./adminHubV2.style.css";
 
@@ -66,12 +67,14 @@ const resourceSchemas = {
         source: "games",
       },
       { key: "word", label: "Palavra", type: "text", required: true },
+      { key: "imageUrl", label: "Imagem", type: "image" },
     ],
-    emptyDraft: { gameId: "", word: "" },
+    emptyDraft: { gameId: "", word: "", imageUrl: "" },
     renderColumns: (row) => [
       row.id,
       row.Game?.code ?? row.gameId ?? "-",
       row.word ?? "-",
+      row.imageUrl ?? "-",
     ],
   },
   quizQuestions: {
@@ -412,6 +415,38 @@ function AdminFormModal({
                       onChange(field.key, event.target.value)
                     }
                   />
+                </label>
+              );
+            }
+
+            if (field.type === "image") {
+              return (
+                <label className="time-field" key={field.key}>
+                  <span>{field.label}</span>
+                  <div className="admin-image-upload">
+                    {draft[field.key] && (
+                      <img
+                        src={draft[field.key].startsWith('http') ? draft[field.key] : `http://localhost:4000${draft[field.key].startsWith('/') ? '' : '/'}${draft[field.key]}`}
+                        alt="Preview"
+                        className="admin-preview-img"
+                        style={{ width: '100px', height: '100px', objectFit: 'contain', marginBottom: '10px', display: 'block' }}
+                      />
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (event) => {
+                        const file = event.target.files[0];
+                        if (!file) return;
+                        try {
+                          const res = await uploadImage(file);
+                          onChange(field.key, res.url);
+                        } catch (err) {
+                          alert("Falha no upload");
+                        }
+                      }}
+                    />
+                  </div>
                 </label>
               );
             }
@@ -861,6 +896,7 @@ function WordsGameTable({
               <tr>
                 <th className="admin-select-head">Selecionar</th>
                 <th>Palavra</th>
+                <th>Imagem</th>
                 <th className="admin-actions-head">Ações</th>
               </tr>
             </thead>
@@ -885,6 +921,17 @@ function WordsGameTable({
                       </label>
                     </td>
                     <td>{row.word ?? "-"}</td>
+                    <td>
+                      {row.imageUrl ? (
+                        <img
+                          src={row.imageUrl.startsWith('http') ? row.imageUrl : `http://localhost:4000${row.imageUrl.startsWith('/') ? '' : '/'}${row.imageUrl}`}
+                          alt="preview"
+                          style={{ width: '40px', height: '40px', objectFit: 'contain' }}
+                        />
+                      ) : (
+                        "-"
+                      )}
+                    </td>
                     <td className="admin-actions-cell">
                       <div className="admin-row-actions">
                         <button

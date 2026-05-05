@@ -108,6 +108,19 @@ export async function deleteAdminRecord(resource, id) {
     });
 }
 
+export async function uploadImage(file) {
+    const url = `${apiBaseUrl}/api/admin/upload`;
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const res = await fetch(url, {
+        method: 'POST',
+        body: formData,
+    });
+    if (!res.ok) throw new Error('Failed to upload image');
+    return await res.json();
+}
+
 // Compatibility helpers previously used by the app
 export async function loadAppDatabase() {
     // Try a quick health check to determine if backend is reachable
