@@ -9,10 +9,15 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
-sequelize.authenticate().catch(err => {});
+sequelize.authenticate().then(() => {
+    console.log('DEBUG DATABASE: Conectado com sucesso.');
+    console.log('DEBUG DATABASE: Arquivo do banco:', sequelize.options.storage);
+}).catch(err => {
+    console.error('DEBUG DATABASE: Erro na conexão:', err);
+});
 
 // Multer Configuration
 const storage = multer.diskStorage({
@@ -72,6 +77,7 @@ const adminResourceConfig = {
         parse: (body) => ({
             gameId: Number(body.gameId),
             question: String(body.question ?? '').trim(),
+            bulkQuestions: body.bulkQuestions && String(body.bulkQuestions).trim() !== '' ? String(body.bulkQuestions).trim() : null,
             options: body.options ?? null,
             answer: body.answer ?? null,
         }),
@@ -83,6 +89,7 @@ const adminResourceConfig = {
         parse: (body) => ({
             gameId: Number(body.gameId),
             word: String(body.word ?? '').trim(),
+            bulkRounds: body.bulkRounds && String(body.bulkRounds).trim() !== '' ? String(body.bulkRounds).trim() : null,
             hint: body.hint ?? null,
         }),
     },
@@ -364,9 +371,19 @@ app.get('/api/admin/records', async (req, res) => {
     }
 });
 
-app.post('/api/admin/upload', upload.single('image'), (req, res) => {
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    res.json({ filename: req.file.filename, url: `/images/${req.file.filename}` });
+app.post('/api/admin/upload', upload.array('images', 50), (req, res) => {
+    if (!req.files || req.files.length === 0) {
+        // Fallback for single file if needed
+        if (req.file) {
+            return res.json([{ filename: req.file.filename, url: `/images/${req.file.filename}` }]);
+        }
+        return res.status(400).json({ error: 'No files uploaded' });
+    }
+    const uploaded = req.files.map(file => ({
+        filename: file.filename,
+        url: `/images/${file.filename}`
+    }));
+    res.json(uploaded);
 });
 
 app.post('/api/admin/:resource', async (req, res) => {
@@ -374,7 +391,22 @@ app.post('/api/admin/:resource', async (req, res) => {
         const config = ensureAdminResource(req, res);
         if (!config) return;
 
-        const payload = normalizeAdminPayload(req.params.resource, req.body);
+        const body = req.body;
+        
+        // Se for um array, processa cada item (Bulk)
+        if (Array.isArray(body)) {
+            const payloads = body.map(item => normalizeAdminPayload(req.params.resource, item)).filter(p => !!p);
+            if (payloads.length === 0) return res.status(400).json({ error: 'invalid payloads' });
+            
+            const results = [];
+            for (const p of payloads) {
+                const item = await config.model.create(p);
+                results.push(item);
+            }
+            return res.json(results);
+        }
+
+        const payload = normalizeAdminPayload(req.params.resource, body);
         if (!payload) {
             return res.status(400).json({ error: 'invalid payload' });
         }
@@ -396,8 +428,66 @@ app.post('/api/admin/:resource', async (req, res) => {
             return res.json(createdItems);
         }
 
-        if (req.params.resource === 'words' && !payload.word) {
-            return res.status(400).json({ error: 'A palavra é obrigatória.' });
+        // BULK QUIZ QUESTIONS LOGIC
+        if (req.params.resource === 'quizQuestions' && payload.bulkQuestions) {
+            console.log('DEBUG BULK QUIZ: Recebido', payload.bulkQuestions.length, 'caracteres');
+            const lines = payload.bulkQuestions.split('\n').map(l => l.trim()).filter(l => l);
+            const createdItems = [];
+            for (const line of lines) {
+                const parts = line.split('.');
+                if (parts.length < 2) continue;
+
+                let q = parts[0].trim();
+                let a = parts[1].trim();
+
+                if (q.endsWith('.')) q = q.slice(0, -1);
+                if (a.endsWith('.')) a = a.slice(0, -1);
+
+                if (!q || !a) continue;
+
+                const item = await QuizQuestion.create({
+                    gameId: payload.gameId,
+                    question: q,
+                    answer: a,
+                    options: [a]
+                });
+                createdItems.push(item);
+            }
+            console.log('DEBUG BULK QUIZ: Criados', createdItems.length, 'registros');
+            return res.json(createdItems);
+        }
+
+        // BULK SOLETRA ROUNDS LOGIC
+        if (req.params.resource === 'soletraRounds' && payload.bulkRounds) {
+            console.log('DEBUG BULK SOLETRA: Recebido', payload.bulkRounds.length, 'caracteres');
+            const lines = payload.bulkRounds.split('\n').map(l => l.trim()).filter(l => l);
+            const createdItems = [];
+            for (const line of lines) {
+                const parts = line.split('.');
+                if (parts.length < 2) continue;
+
+                let w = parts[0].trim();
+                let h = parts[1].trim();
+
+                if (w.endsWith('.')) w = w.slice(0, -1);
+                if (h.endsWith('.')) h = h.slice(0, -1);
+
+                if (!w || !h) continue;
+
+                const item = await SoletraRound.create({
+                    gameId: payload.gameId,
+                    word: w,
+                    hint: h
+                });
+                createdItems.push(item);
+            }
+            console.log('DEBUG BULK SOLETRA: Criados', createdItems.length, 'registros');
+            return res.json(createdItems);
+        }
+
+        // O campo 'word' agora é opcional no modelo para suportar jogos baseados em imagem
+        if (req.params.resource === 'words' && !payload.word && !payload.imageUrl && !payload.bulkWords) {
+            return res.status(400).json({ error: 'A palavra ou imagem é obrigatória.' });
         }
 
         if (req.params.resource === 'playerGameScores' && payload.lastPlayedAt === null) {

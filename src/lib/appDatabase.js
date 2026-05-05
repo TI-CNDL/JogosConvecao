@@ -111,13 +111,29 @@ export async function deleteAdminRecord(resource, id) {
 export async function uploadImage(file) {
     const url = `${apiBaseUrl}/api/admin/upload`;
     const formData = new FormData();
-    formData.append('image', file);
+    formData.append('images', file);
 
     const res = await fetch(url, {
         method: 'POST',
         body: formData,
     });
     if (!res.ok) throw new Error('Failed to upload image');
+    const result = await res.json();
+    return Array.isArray(result) ? result[0] : result;
+}
+
+export async function uploadImages(files) {
+    const url = `${apiBaseUrl}/api/admin/upload`;
+    const formData = new FormData();
+    for (const file of files) {
+        formData.append('images', file);
+    }
+
+    const res = await fetch(url, {
+        method: 'POST',
+        body: formData,
+    });
+    if (!res.ok) throw new Error('Failed to upload images');
     return await res.json();
 }
 

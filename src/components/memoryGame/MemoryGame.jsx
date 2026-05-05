@@ -70,7 +70,7 @@ export default function MemoryGame({
                   card.imageUrl ? (
                     <img
                       src={
-                        card.imageUrl.startsWith("http")
+                        card.imageUrl.startsWith("http") || card.imageUrl.startsWith("data:")
                           ? card.imageUrl
                           : `http://localhost:4000${card.imageUrl.startsWith("/") ? "" : "/"}${card.imageUrl}`
                       }

@@ -5,6 +5,7 @@ import {
   getAdminRecords,
   updateAdminRecord,
   uploadImage,
+  uploadImages,
 } from "../../lib/appDatabase";
 import "./adminHubV2.style.css";
 
@@ -81,34 +82,24 @@ const resourceSchemas = {
     title: "Perguntas do Quiz",
     searchPlaceholder: "Pergunta, resposta ou opções",
     fields: [
-      {
-        key: "gameId",
-        label: "Jogo",
-        type: "select",
-        required: true,
-        source: "games",
-      },
-      { key: "question", label: "Pergunta", type: "text", required: true },
-      { key: "answer", label: "Resposta", type: "text", required: true },
+      { key: "gameId", label: "Jogo", type: "select", source: "games", required: true },
+      { key: "question", label: "Pergunta (Individual)", type: "text" },
+      { key: "answer", label: "Resposta Certa", type: "text" },
+      { key: "bulkQuestions", label: "Perguntas em Massa (Formato: Pergunta.Resposta.)", type: "textarea" },
     ],
-    emptyDraft: { gameId: "", question: "", answer: "" },
-    renderColumns: (row) => [row.id, row.question ?? "-", row.answer ?? "-"],
+    emptyDraft: { gameId: "", question: "", answer: "", bulkQuestions: "" },
+    renderColumns: (row) => [row.id, row.question ?? row.prompt ?? "-", row.answer ?? "-"],
   },
   soletraRounds: {
     title: "Frases / Soletra",
     searchPlaceholder: "Palavra ou dica",
     fields: [
-      {
-        key: "gameId",
-        label: "Jogo",
-        type: "select",
-        required: true,
-        source: "games",
-      },
-      { key: "word", label: "Palavra", type: "text", required: true },
+      { key: "gameId", label: "Jogo", type: "select", source: "games", required: true },
+      { key: "word", label: "Palavra (Individual)", type: "text" },
       { key: "hint", label: "Frase / Dica", type: "text" },
+      { key: "bulkRounds", label: "Rodadas em Massa (Formato: Palavra.Dica.)", type: "textarea" },
     ],
-    emptyDraft: { gameId: "", word: "", hint: "" },
+    emptyDraft: { gameId: "", word: "", hint: "", bulkRounds: "" },
     renderColumns: (row) => [row.id, row.word ?? "-", row.hint ?? "-"],
   },
   playerGameScores: {
@@ -361,6 +352,12 @@ function AdminFormModal({
               return null;
             }
 
+            if (field.key === "word" || field.key === "bulkWords") {
+              const games = sources["games"] ?? [];
+              const selectedGame = games.find(g => String(g.id) === String(draft.gameId));
+              if (selectedGame?.code === "memory") return null;
+            }
+
             if (field.type === "select") {
               const options = sources[field.source] ?? [];
               return (
@@ -435,10 +432,11 @@ function AdminFormModal({
             }
 
             if (field.type === "image") {
+              const games = sources["games"] ?? [];
+              const selectedGame = games.find(g => String(g.id) === String(draft.gameId));
+
               // Somente mostra o campo de imagem para o Jogo da Memória
               if (resource === "words") {
-                const games = sources["games"] ?? [];
-                const selectedGame = games.find(g => String(g.id) === String(draft.gameId));
                 if (selectedGame?.code !== "memory") return null;
               }
 
@@ -447,24 +445,42 @@ function AdminFormModal({
                   <span>{field.label}</span>
                   <div className="admin-image-upload">
                     {draft[field.key] && (
-                      <img
-                        src={draft[field.key].startsWith('http') ? draft[field.key] : `http://localhost:4000${draft[field.key].startsWith('/') ? '' : '/'}${draft[field.key]}`}
-                        alt="Preview"
-                        className="admin-preview-img"
-                        style={{ width: '100px', height: '100px', objectFit: 'contain', marginBottom: '10px', display: 'block' }}
-                      />
+                      <div className="admin-preview-container" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                        {(Array.isArray(draft[field.key]) ? draft[field.key] : [draft[field.key]]).map((url, idx) => (
+                          <img
+                            key={idx}
+                            src={url.startsWith('data:') || url.startsWith('http') ? url : `http://localhost:4000${url.startsWith('/') ? '' : '/'}${url}`}
+                            alt="Preview"
+                            className="admin-preview-img"
+                            style={{ width: '80px', height: '80px', objectFit: 'contain', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}
+                          />
+                        ))}
+                      </div>
                     )}
                     <input
                       type="file"
                       accept="image/*"
+                      multiple={mode === "create" && selectedGame?.code === "memory"}
                       onChange={async (event) => {
-                        const file = event.target.files[0];
-                        if (!file) return;
+                        const files = Array.from(event.target.files);
+                        if (files.length === 0) return;
+
+                        const toBase64 = (file) => new Promise((resolve, reject) => {
+                          const reader = new FileReader();
+                          reader.readAsDataURL(file);
+                          reader.onload = () => resolve(reader.result);
+                          reader.onerror = error => reject(error);
+                        });
+
                         try {
-                          const res = await uploadImage(file);
-                          onChange(field.key, res.url);
+                          const base64Results = await Promise.all(files.map(toBase64));
+                          if (base64Results.length === 1) {
+                            onChange(field.key, base64Results[0]);
+                          } else {
+                            onChange(field.key, base64Results);
+                          }
                         } catch (err) {
-                          alert("Falha no upload");
+                          alert("Erro ao processar imagens");
                         }
                       }}
                     />
@@ -594,6 +610,7 @@ function ResourceSection({
                     row.code ??
                     row.word ??
                     row.question ??
+                    row.prompt ??
                     row.phone ??
                     row.key ??
                     `#${row.id}`}
@@ -661,7 +678,11 @@ function ResourceSection({
               </tr>
             </thead>
             <tbody>
-              {visibleRows.map((row) => {
+              {resource === "quizQuestions" && (
+                console.log("DEBUG FRONTEND: Desenhando QuizQuestions:", visibleRows),
+                visibleRows.length > 0 && console.log("DEBUG FRONTEND: Exemplo da primeira pergunta:", visibleRows[0])
+              )}
+          {visibleRows.map((row) => {
                 const isSelected = selectedIds.includes(String(row.id));
                 return (
                   <tr key={row.id} className={isSelected ? "is-selected" : ""}>
@@ -921,7 +942,7 @@ function WordsGameTable({
               <tr>
                 <th className="admin-select-head">Selecionar</th>
                 <th>ID</th>
-                <th>Palavra</th>
+                {!isMemoryGame && <th>Palavra</th>}
                 {isMemoryGame && <th>Imagem</th>}
                 <th className="admin-actions-head">Ações</th>
               </tr>
@@ -947,12 +968,18 @@ function WordsGameTable({
                       </label>
                     </td>
                     <td>{row.id}</td>
-                    <td>{row.word ?? "-"}</td>
+                    {!isMemoryGame && <td>{row.word ?? "-"}</td>}
                     {isMemoryGame && (
                       <td>
                         {row.imageUrl ? (
                           <img
-                            src={row.imageUrl.startsWith('http') ? row.imageUrl : `http://localhost:4000${row.imageUrl.startsWith('/') ? '' : '/'}${row.imageUrl}`}
+                            src={
+                              (row.imageUrl?.startsWith("data:") || row.imageUrl?.startsWith("http"))
+                                ? row.imageUrl
+                                : row.imageUrl?.length > 100 
+                                  ? `data:image/png;base64,${row.imageUrl}`
+                                  : `http://localhost:4000${row.imageUrl?.startsWith("/") ? "" : "/"}${row.imageUrl}`
+                            }
                             alt="preview"
                             style={{ width: '40px', height: '40px', objectFit: 'contain' }}
                           />
@@ -1018,6 +1045,7 @@ export default function AdminHub({ onBackToMenu }) {
     setError("");
     try {
       const data = await getAdminRecords();
+      console.log("DEBUG FRONTEND: Dados recebidos do servidor:", data);
       setRecords(data);
     } catch (err) {
 
@@ -1155,15 +1183,50 @@ export default function AdminHub({ onBackToMenu }) {
       const schema = resourceSchemas[modalState.resource];
       const payload = serializeDraft(schema, modalState.draft);
 
+      const games = sources["games"] ?? [];
+      const selectedGame = games.find(g => String(g.id) === String(modalState.draft.gameId));
+      const isMemory = modalState.resource === "words" && selectedGame?.code === "memory";
+
       // Validação extra para o recurso de palavras
-      if (modalState.resource === "words" && !payload.word && !payload.bulkWords) {
-        setModalError("Por favor, digite ao menos uma palavra.");
-        setSaving(false);
-        return;
+      if (modalState.resource === "words") {
+        if (isMemory) {
+          if (!payload.imageUrl || (Array.isArray(payload.imageUrl) && payload.imageUrl.length === 0)) {
+            setModalError("Por favor, selecione ao menos uma imagem.");
+            setSaving(false);
+            return;
+          }
+          // Deixa vazio para o Jogo da Memória
+          if (!payload.word) payload.word = "";
+        } else if (!payload.word && !payload.bulkWords) {
+          setModalError("Por favor, digite ao menos uma palavra.");
+          setSaving(false);
+          return;
+        }
+      }
+
+      if (modalState.resource === "quizQuestions") {
+        if (!payload.question && !payload.bulkQuestions) {
+          setModalError("Por favor, digite ao menos uma pergunta.");
+          setSaving(false);
+          return;
+        }
+      }
+
+      if (modalState.resource === "soletraRounds") {
+        if (!payload.word && !payload.bulkRounds) {
+          setModalError("Por favor, digite ao menos uma palavra.");
+          setSaving(false);
+          return;
+        }
       }
 
       if (modalState.mode === "create") {
-        await createAdminRecord(modalState.resource, payload);
+        if (modalState.resource === "words" && Array.isArray(payload.imageUrl)) {
+          const bulkPayload = payload.imageUrl.map(url => ({ ...payload, imageUrl: url }));
+          await createAdminRecord(modalState.resource, bulkPayload);
+        } else {
+          await createAdminRecord(modalState.resource, payload);
+        }
       } else {
         await updateAdminRecord(modalState.resource, modalState.rowId, payload);
       }
