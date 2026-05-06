@@ -559,7 +559,7 @@ export function App() {
 
   const handleGridSizeChange = (gameId, valueSize) => {
     if (gameId === "labirinto") {
-      const allowedSizes = [5, 8, 10];
+      const allowedSizes = [8, 10];
       const safeSize = allowedSizes.includes(valueSize) ? valueSize : 8;
       setGridSizes((prev) => ({ ...prev, [gameId]: safeSize }));
       return;

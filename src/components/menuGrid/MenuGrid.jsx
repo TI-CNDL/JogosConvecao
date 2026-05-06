@@ -138,7 +138,7 @@ export default function MenuGrid({
                     onGridSizeChange(game.id, Number(e.target.value))
                   }
                 >
-                  {[5, 8, 10].map((val) => (
+                  {[8, 10].map((val) => (
                     <option key={val} value={val}>
                       {val} x {val}
                     </option>

@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { shuffle } from "../../utils/array";
 
-const WALL_PROBABILITY = 0.28;
 const DEFAULT_GRID_SIZE = 8;
 const MIN_GAP_STEPS = 2;
 const MAX_GAP_STEPS = 6;
+
+// Probabilidade de parede varia com tamanho do grid
+const getWallProbability = (gridSize) => {
+    if (gridSize <= 5) return 0.05; // Muito poucas paredes em grids pequenos
+    if (gridSize <= 8) return 0.20; // Poucas paredes
+    return 0.28; // Normal para grids grandes
+};
 
 const DELTAS = [
     { dr: -1, dc: 0 },
@@ -27,6 +33,12 @@ const copyPos = (pos) => ({ r: pos.r, c: pos.c });
 const isCornerCell = (r, c, gridSize) => {
     const last = gridSize - 1;
     return (r === 0 || r === last) && (c === 0 || c === last);
+};
+
+const getGapRange = (gridSize) => {
+    if (gridSize <= 5) return { min: 1, max: 2 };
+    if (gridSize <= 8) return { min: 2, max: 4 };
+    return { min: 3, max: 6 };
 };
 
 const isValidSegment = (path, blockedEdges, gridSize) => {
@@ -94,15 +106,7 @@ const isRoundCompletable = ({ word, checkpoints, blockedEdges, solutionPaths, gr
 };
 
 const generateLetterPath = (word, gridSize) => {
-    const maxAttempts = 800;
-
-    // Ajusta gaps dinamicamente baseado no tamanho do grid
-    const getGapRange = (size) => {
-        if (size <= 5) return { min: 1, max: 2 };
-        if (size <= 8) return { min: 2, max: 5 };
-        return { min: 2, max: 6 };
-    };
-    const gaps = getGapRange(gridSize);
+    const maxAttempts = gridSize <= 5 ? 5000 : (gridSize <= 8 ? 2000 : 1000);
 
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const checkpoints = [];
@@ -119,6 +123,7 @@ const generateLetterPath = (word, gridSize) => {
         let current = start;
 
         for (let i = 1; i < word.length; i += 1) {
+            const gaps = getGapRange(gridSize);
             const minDistance = gaps.min;
             const maxDistance = gaps.max;
             const isMiddleLetter = i > 0 && i < word.length - 1;
@@ -153,9 +158,13 @@ const generateLetterPath = (word, gridSize) => {
             current = next;
         }
 
-        if (ok && checkpoints.length === word.length) return checkpoints;
+        if (ok && checkpoints.length === word.length) {
+            console.log(`[generateLetterPath] ✓ Sucesso no attempt ${attempt + 1}`);
+            return checkpoints;
+        }
     }
 
+    console.warn(`[generateLetterPath] ✗ Falha após ${maxAttempts} tentativas`);
     return null;
 };
 
@@ -186,25 +195,20 @@ const buildPathBetween = (
         const currentK = posKey(current.r, current.c);
 
         if (currentK === targetK) {
-            const path = [copyPos(target)];
-            let walk = currentK;
+            const path = [];
+            let walk = targetK;
             let pathWalkIterations = 0;
 
-            while (walk !== startK && pathWalkIterations < MAX_ITERATIONS) {
+            while (walk && pathWalkIterations < MAX_ITERATIONS) {
                 pathWalkIterations += 1;
                 const [wr, wc] = walk.split("-").map(Number);
                 path.push({ r: wr, c: wc });
+                if (walk === startK) break;
                 walk = prev.get(walk);
-
-                // Safety: if walk becomes undefined, break
-                if (!walk) {
-                    path.push(copyPos(start));
-                    break;
-                }
             }
 
             // Only return if we actually reached start
-            if (walk === startK || path[path.length - 1].r === start.r && path[path.length - 1].c === start.c) {
+            if (path.length > 0 && path[path.length - 1].r === start.r && path[path.length - 1].c === start.c) {
                 return path.reverse();
             }
             return null;
@@ -246,6 +250,7 @@ const buildBlockedEdges = (checkpoints, gridSize) => {
             gridSize,
         );
         if (!between || between.length < 2) {
+            console.warn(`[buildBlockedEdges] ✗ Falha ao conectar checkpoint ${i} → ${i + 1}`);
             return null;
         }
         solutionPaths.push(between);
@@ -257,11 +262,12 @@ const buildBlockedEdges = (checkpoints, gridSize) => {
 
     for (let r = 0; r < gridSize; r += 1) {
         for (let c = 0; c < gridSize; c += 1) {
+            const wallProb = getWallProbability(gridSize);
             if (c + 1 < gridSize) {
                 const a = { r, c };
                 const b = { r, c: c + 1 };
                 const key = edgeKey(a, b);
-                if (!solutionEdges.has(key) && Math.random() < WALL_PROBABILITY) {
+                if (!solutionEdges.has(key) && Math.random() < wallProb) {
                     blocked.add(key);
                 }
             }
@@ -270,7 +276,7 @@ const buildBlockedEdges = (checkpoints, gridSize) => {
                 const a = { r, c };
                 const b = { r: r + 1, c };
                 const key = edgeKey(a, b);
-                if (!solutionEdges.has(key) && Math.random() < WALL_PROBABILITY) {
+                if (!solutionEdges.has(key) && Math.random() < wallProb) {
                     blocked.add(key);
                 }
             }
@@ -333,7 +339,7 @@ const getDirectionName = (from, to) => {
 };
 
 const generateRound = (words, gridSize, depth = 0) => {
-    const MAX_DEPTH = gridSize <= 5 ? 50 : (gridSize <= 8 ? 30 : 20);
+    const MAX_DEPTH = gridSize <= 5 ? 200 : (gridSize <= 8 ? 100 : 50);
 
     if (!words || words.length === 0) return null;
     if (depth > MAX_DEPTH) return null;
@@ -343,7 +349,6 @@ const generateRound = (words, gridSize, depth = 0) => {
     const word = pool[Math.floor(Math.random() * pool.length)];
     const checkpoints = generateLetterPath(word, gridSize);
     if (!checkpoints) {
-        console.debug(`[LabirintoLogic] Falha em generateLetterPath depth=${depth}`);
         return generateRound(words, gridSize, depth + 1);
     }
 
@@ -360,7 +365,6 @@ const generateRound = (words, gridSize, depth = 0) => {
 
     const blockedResult = buildBlockedEdges(checkpoints, gridSize);
     if (!blockedResult) {
-        console.debug(`[LabirintoLogic] Falha em buildBlockedEdges depth=${depth}`);
         return generateRound(words, gridSize, depth + 1);
     }
     const { blocked: blockedEdges, solutionPaths } = blockedResult;
@@ -385,13 +389,7 @@ const generateRound = (words, gridSize, depth = 0) => {
         solutionPaths,
         gridSize,
     })) {
-        // Para grids pequenos, pula a validação rigorosa se todas as tentativas falharem
-        if (gridSize >= 8 || depth < 15) {
-            console.debug(`[LabirintoLogic] Falha em isRoundCompletable depth=${depth}`);
-            return generateRound(words, gridSize, depth + 1);
-        }
-        // Para grids <= 5 após muitas tentativas, aceita mesmo sem passar na validação rigorosa
-        console.debug(`[LabirintoLogic] Aceitando round incompleto em grid ${gridSize} depth=${depth}`);
+        return generateRound(words, gridSize, depth + 1);
     }
 
     return candidateRound;
@@ -495,11 +493,14 @@ export default function useLabirintoLogic({
         if (!boardRef.current) return undefined;
         const observer = new ResizeObserver((entries) => {
             const width = entries[0]?.contentRect?.width;
-            if (width) setBoardSize(width);
+            if (width) {
+                console.debug(`[Labirinto V3] ResizeObserver: width=${width}`);
+                setBoardSize(width);
+            }
         });
         observer.observe(boardRef.current);
         return () => observer.disconnect();
-    }, []);
+    }, [round]);
 
     const resetAttempt = () => {
         setProgress(-1);
@@ -715,15 +716,10 @@ export default function useLabirintoLogic({
     };
 
     const hasRound = Boolean(round && grid.length > 0);
-    // Calcular o padding dinâmico do board (responsivo: 8px desktop, 4px mobile)
-    let boardPadding = 16; // padrão: 8px em cada lado (8*2)
-    if (boardRef.current) {
-        const computed = window.getComputedStyle(boardRef.current);
-        const paddingValue = parseFloat(computed.padding);
-        boardPadding = paddingValue * 2; // multiplicar por 2 para total (esquerda + direita ou top + bottom)
+    const cellSize = boardSize / boardGridSize;
+    if (hasRound) {
+        console.debug(`[Labirinto V3] alignment debug: boardSize=${boardSize}, cellSize=${cellSize}, grid=${boardGridSize}`);
     }
-    const effectiveBoardSize = Math.max(boardSize - boardPadding, 100);
-    const cellSize = effectiveBoardSize / boardGridSize;
 
     const wallSegments = useMemo(() => {
         if (!round) return [];

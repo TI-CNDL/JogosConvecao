@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import useLabirintoLogic from "./useLabirintoLogic";
 import "./labirintoGame.style.css";
 
@@ -48,6 +49,14 @@ export default function LabirintoGame({
     showHint,
     posKey,
   } = logic;
+
+  // Debug de alinhamento no lado visual
+  useEffect(() => {
+    if (boardRef.current) {
+      const style = window.getComputedStyle(boardRef.current);
+      console.debug(`[Labirinto V3] Grid Rendered: width=${style.width}, height=${style.height}, padding=${style.padding}, border=${style.borderWidth}`);
+    }
+  }, [cellSize]);
 
   return (
     <div className="labirinto-panel" onPointerUp={endDrag}>
@@ -104,11 +113,11 @@ export default function LabirintoGame({
           </div>
 
           <div
-            ref={boardRef}
             className="labirinto-board"
-            style={{ width: "100%", maxWidth: 560 }}
+            style={{ width: "100%"}}
           >
             <div
+              ref={boardRef}
               className="labirinto-grid"
               role="grid"
               aria-label="Labirinto de letras"
@@ -146,9 +155,7 @@ export default function LabirintoGame({
                   );
                 }),
               )}
-            </div>
-
-            <div className="labirinto-overlay" aria-hidden="true">
+              <div className="labirinto-overlay" aria-hidden="true">
               {trailSegments.map((seg) => (
                 <div
                   key={seg.key}
@@ -187,7 +194,8 @@ export default function LabirintoGame({
               ))}
             </div>
           </div>
-        </>
+        </div>
+      </>
       )}
 
       {finished && (

@@ -63,6 +63,10 @@
 }
 
 .labirinto-board {
+    width: 80% !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     position: relative;
     margin: 0 auto;
     touch-action: none;
@@ -118,6 +122,8 @@
     font-weight: 800;
     text-transform: uppercase;
     background: #eef2f7;
+    position: relative;
+    z-index: 10;
 }
 
 .labirinto-panel button.labirinto-cell .labirinto-cell-letter.empty {
