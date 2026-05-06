@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { shuffle } from "../../utils/array";
 
 const WALL_PROBABILITY = 0.28;
-const MIN_GAP_STEPS = 4;
-const MAX_GAP_STEPS = 6;
 const DEFAULT_GRID_SIZE = 8;
+const MIN_GAP_STEPS = 2;
+const MAX_GAP_STEPS = 6;
 
 const DELTAS = [
     { dr: -1, dc: 0 },
@@ -24,8 +24,85 @@ const inBounds = (r, c, gridSize) => r >= 0 && c >= 0 && r < gridSize && c < gri
 const areAdjacent = (a, b) => Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1;
 const copyPos = (pos) => ({ r: pos.r, c: pos.c });
 
+const isCornerCell = (r, c, gridSize) => {
+    const last = gridSize - 1;
+    return (r === 0 || r === last) && (c === 0 || c === last);
+};
+
+const isValidSegment = (path, blockedEdges, gridSize) => {
+    if (!Array.isArray(path) || path.length < 2) return false;
+
+    for (let i = 0; i < path.length; i += 1) {
+        const p = path[i];
+        if (!inBounds(p.r, p.c, gridSize)) return false;
+
+        if (i > 0) {
+            const prev = path[i - 1];
+            if (!areAdjacent(prev, p)) return false;
+            if (blockedEdges.has(edgeKey(prev, p))) return false;
+        }
+    }
+
+    return true;
+};
+
+const isRoundCompletable = ({ word, checkpoints, blockedEdges, solutionPaths, gridSize }) => {
+    if (!word || !Array.isArray(checkpoints) || checkpoints.length !== word.length) {
+        return false;
+    }
+    if (!Array.isArray(solutionPaths) || solutionPaths.length !== Math.max(0, checkpoints.length - 1)) {
+        return false;
+    }
+
+    const trail = [];
+    for (let idx = 0; idx < solutionPaths.length; idx += 1) {
+        const segment = solutionPaths[idx];
+        if (!isValidSegment(segment, blockedEdges, gridSize)) {
+            return false;
+        }
+
+        if (idx === 0) {
+            trail.push(...segment);
+        } else {
+            // Evita duplicar o checkpoint de junção.
+            trail.push(...segment.slice(1));
+        }
+    }
+
+    if (trail.length === 0) return false;
+
+    const visited = new Set();
+    for (let i = 0; i < trail.length; i += 1) {
+        const key = posKey(trail[i].r, trail[i].c);
+        if (visited.has(key)) {
+            return false;
+        }
+        visited.add(key);
+    }
+
+    // Confirma que checkpoints aparecem na trilha e na ordem correta.
+    let checkpointCursor = 0;
+    for (let i = 0; i < trail.length && checkpointCursor < checkpoints.length; i += 1) {
+        const t = trail[i];
+        const cp = checkpoints[checkpointCursor];
+        if (t.r === cp.r && t.c === cp.c) {
+            checkpointCursor += 1;
+        }
+    }
+
+    return checkpointCursor === checkpoints.length;
+};
+
 const generateLetterPath = (word, gridSize) => {
     const maxAttempts = 800;
+
+    // Ajusta gaps dinamicamente baseado no tamanho do grid
+    const getGapRange = (size) => {
+        if (size <= 5) return { min: 1, max: 2 };
+        if (size <= 8) return { min: 2, max: 5 };
+        return { min: 2, max: 6 };
+    };
+    const gaps = getGapRange(gridSize);
 
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const checkpoints = [];
@@ -42,8 +119,9 @@ const generateLetterPath = (word, gridSize) => {
         let current = start;
 
         for (let i = 1; i < word.length; i += 1) {
-            const minDistance = MIN_GAP_STEPS;
-            const maxDistance = MAX_GAP_STEPS;
+            const minDistance = gaps.min;
+            const maxDistance = gaps.max;
+            const isMiddleLetter = i > 0 && i < word.length - 1;
             const candidates = [];
 
             for (let r = 0; r < gridSize; r += 1) {
@@ -51,6 +129,9 @@ const generateLetterPath = (word, gridSize) => {
                     const candidate = { r, c };
                     const key = posKey(r, c);
                     if (visited.has(key)) continue;
+
+                    // Regra solicitada: letras do meio nao podem ficar nos cantos (apenas para grids maiores).
+                    if (gridSize >= 8 && isMiddleLetter && isCornerCell(r, c, gridSize)) continue;
 
                     const manhattan = Math.abs(candidate.r - current.r) + Math.abs(candidate.c - current.c);
                     if (manhattan >= minDistance && manhattan <= maxDistance) {
@@ -252,7 +333,7 @@ const getDirectionName = (from, to) => {
 };
 
 const generateRound = (words, gridSize, depth = 0) => {
-    const MAX_DEPTH = 10;
+    const MAX_DEPTH = gridSize <= 5 ? 50 : (gridSize <= 8 ? 30 : 20);
 
     if (!words || words.length === 0) return null;
     if (depth > MAX_DEPTH) return null;
@@ -261,7 +342,10 @@ const generateRound = (words, gridSize, depth = 0) => {
     const pool = eligibleWords.length > 0 ? eligibleWords : words;
     const word = pool[Math.floor(Math.random() * pool.length)];
     const checkpoints = generateLetterPath(word, gridSize);
-    if (!checkpoints) return null;
+    if (!checkpoints) {
+        console.debug(`[LabirintoLogic] Falha em generateLetterPath depth=${depth}`);
+        return generateRound(words, gridSize, depth + 1);
+    }
 
     const checkpointMap = new Map();
     checkpoints.forEach((p, idx) => checkpointMap.set(posKey(p.r, p.c), idx));
@@ -275,14 +359,17 @@ const generateRound = (words, gridSize, depth = 0) => {
     });
 
     const blockedResult = buildBlockedEdges(checkpoints, gridSize);
-    if (!blockedResult) return generateRound(words, gridSize, depth + 1);
+    if (!blockedResult) {
+        console.debug(`[LabirintoLogic] Falha em buildBlockedEdges depth=${depth}`);
+        return generateRound(words, gridSize, depth + 1);
+    }
     const { blocked: blockedEdges, solutionPaths } = blockedResult;
 
     checkpoints.forEach((p, idx) => {
         grid[p.r][p.c].letter = word[idx];
     });
 
-    return {
+    const candidateRound = {
         word,
         checkpoints,
         checkpointMap,
@@ -290,6 +377,51 @@ const generateRound = (words, gridSize, depth = 0) => {
         solutionPaths,
         grid,
     };
+
+    if (!isRoundCompletable({
+        word,
+        checkpoints,
+        blockedEdges,
+        solutionPaths,
+        gridSize,
+    })) {
+        // Para grids pequenos, pula a validação rigorosa se todas as tentativas falharem
+        if (gridSize >= 8 || depth < 15) {
+            console.debug(`[LabirintoLogic] Falha em isRoundCompletable depth=${depth}`);
+            return generateRound(words, gridSize, depth + 1);
+        }
+        // Para grids <= 5 após muitas tentativas, aceita mesmo sem passar na validação rigorosa
+        console.debug(`[LabirintoLogic] Aceitando round incompleto em grid ${gridSize} depth=${depth}`);
+    }
+
+    return candidateRound;
+};
+
+const debugRoundFailure = ({ source, words, gridSize }) => {
+    const safeWords = Array.isArray(words) ? words : [];
+    const lengths = safeWords
+        .map((w) => String(w ?? "").trim().length)
+        .filter((n) => n > 0);
+    const uniqueLengths = Array.from(new Set(lengths)).sort((a, b) => a - b);
+
+    console.warn("[Labirinto][DEBUG] Falha ao montar round", {
+        source,
+        gridSize,
+        wordsCount: safeWords.length,
+        availableWordLengths: uniqueLengths,
+        sampleWords: safeWords.slice(0, 8),
+    });
+};
+
+const createRoundWithDebug = ({ words, gridSize, source }) => {
+    if (!words || words.length === 0) {
+        return null;
+    }
+    const round = generateRound(words, gridSize);
+    if (!round) {
+        debugRoundFailure({ source, words, gridSize });
+    }
+    return round;
 };
 
 const getSequenceStateFromTrail = ({ trail, checkpointMap, grid, word }) => {
@@ -327,7 +459,16 @@ export default function useLabirintoLogic({
     const { words = [] } = data;
     const { timeLimitSeconds = 120, gridSize = DEFAULT_GRID_SIZE } = config;
 
-    const [round, setRound] = useState(() => generateRound(words, gridSize));
+    const [round, setRound] = useState(() => {
+        if (words && words.length > 0) {
+            return createRoundWithDebug({
+                words,
+                gridSize,
+                source: "initial-state",
+            });
+        }
+        return null;
+    });
     const [progress, setProgress] = useState(-1);
     const [trail, setTrail] = useState([]);
     const [trailSet, setTrailSet] = useState(new Set());
@@ -370,7 +511,13 @@ export default function useLabirintoLogic({
     };
 
     const newGame = () => {
-        setRound(generateRound(words, boardGridSize));
+        if (words && words.length > 0) {
+            setRound(createRoundWithDebug({
+                words,
+                gridSize: boardGridSize,
+                source: "newGame",
+            }));
+        }
         setProgress(-1);
         setTrail([]);
         setTrailSet(new Set());
@@ -389,7 +536,15 @@ export default function useLabirintoLogic({
     }, [timeLimitSeconds]);
 
     useEffect(() => {
-        setRound(generateRound(words, boardGridSize));
+        if (words && words.length > 0) {
+            setRound(createRoundWithDebug({
+                words,
+                gridSize: boardGridSize,
+                source: "words-or-grid-change",
+            }));
+        } else {
+            setRound(null);
+        }
         setProgress(-1);
         setTrail([]);
         setTrailSet(new Set());

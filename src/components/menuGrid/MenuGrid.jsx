@@ -132,7 +132,18 @@ export default function MenuGrid({
             <>
               <label className="time-field">
                 <span>Tamanho do labirinto</span>
-                <input type="text" value="8 x 8" readOnly />
+                <select
+                  value={gridSizes?.[game.id] ?? 8}
+                  onChange={(e) =>
+                    onGridSizeChange(game.id, Number(e.target.value))
+                  }
+                >
+                  {[5, 8, 10].map((val) => (
+                    <option key={val} value={val}>
+                      {val} x {val}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="time-field">
                 <span>Qtd. de letras</span>

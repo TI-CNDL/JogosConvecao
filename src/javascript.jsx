@@ -47,7 +47,7 @@ const defaultTimeLimits = {};
 
 const defaultPairs = { memory: 6 };
 
-const defaultGridSizes = { whac: 12, wordsearch: 10 };
+const defaultGridSizes = { whac: 12, wordsearch: 10, labirinto: 8 };
 
 const defaultQuizCounts = { quiz: 5 };
 
@@ -458,7 +458,7 @@ export function App() {
           data={{ words: gameData.labirintoWords }}
           settings={{
             timeLimitSeconds: props.timeLimitSeconds,
-            gridSize: 8,
+            gridSize: props.gridSize || 8,
           }}
           ranking={props.ranking}
           onScore={props.onScore}
@@ -559,7 +559,9 @@ export function App() {
 
   const handleGridSizeChange = (gameId, valueSize) => {
     if (gameId === "labirinto") {
-      setGridSizes((prev) => ({ ...prev, [gameId]: 8 }));
+      const allowedSizes = [5, 8, 10];
+      const safeSize = allowedSizes.includes(valueSize) ? valueSize : 8;
+      setGridSizes((prev) => ({ ...prev, [gameId]: safeSize }));
       return;
     }
 
@@ -620,7 +622,10 @@ export function App() {
     () => ({
       timeLimitSeconds: effectiveTimeLimit(gameKey) || 30,
       pairCount: pairsLimits && pairsLimits[gameKey] ? pairsLimits[gameKey] : 6,
-      gridSize: gameKey === "labirinto" ? 8 : gridSizes[gameKey] || 12,
+      gridSize:
+        gameKey === "labirinto"
+          ? gridSizes[gameKey] || 8
+          : gridSizes[gameKey] || 12,
       questionLimit: quizQuestionLimits[gameKey] || 5,
       wordLimit:
         gameKey === "hangman"
