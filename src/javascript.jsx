@@ -45,17 +45,19 @@ const defaultGameData = {
 
 const defaultTimeLimits = {};
 
-const defaultPairs = {};
+const defaultPairs = { memory: 6 };
 
-const defaultGridSizes = {};
+const defaultGridSizes = { whac: 12, wordsearch: 10 };
 
-const defaultQuizCounts = {};
+const defaultQuizCounts = { quiz: 5 };
 
-const defaultSoletraWordLimits = {};
+const defaultSoletraWordLimits = { soletra: 3 };
 
-const defaultCatchInitialFallTimes = {};
+const defaultCatchInitialFallTimes = { catch: 10 };
 
-const defaultWordSearchWordLimits = {};
+const defaultWordSearchWordLimits = { wordsearch: 5 };
+const defaultHangmanWordLengths = { hangman: 5 };
+const defaultLabirintoWordLengths = { labirinto: 5 };
 
 const normalizePhone = (value) => (value || "").replace(/\D/g, "");
 const onlyDigits = (value) => (value || "").replace(/\D/g, "").slice(0, 11);
@@ -118,6 +120,14 @@ export function App() {
     ...defaultWordSearchWordLimits,
     ...(initialDatabase.settings.wordSearchWordLimits ?? {}),
   });
+  const [hangmanWordLengths, setHangmanWordLengths] = useState({
+    ...defaultHangmanWordLengths,
+    ...(initialDatabase.settings.hangmanWordLengths ?? {}),
+  });
+  const [labirintoWordLengths, setLabirintoWordLengths] = useState({
+    ...defaultLabirintoWordLengths,
+    ...(initialDatabase.settings.labirintoWordLengths ?? {}),
+  });
   const [isRemoteMode, setIsRemoteMode] = useState(false);
   const [isSavingScore, setIsSavingScore] = useState(false);
   const [isStartingGame, setIsStartingGame] = useState(false);
@@ -152,7 +162,6 @@ export function App() {
         const remoteRanking = await getRanking();
         setRanking(Array.isArray(remoteRanking) ? remoteRanking : []);
       } catch (e) {
-        console.error("Falha ao buscar ranking remoto", e);
         setRanking(Array.isArray(db.ranking) ? db.ranking : []);
       }
 
@@ -160,6 +169,18 @@ export function App() {
       setTimeLimits({
         ...defaultTimeLimits,
         ...(db.settings.timeLimits ?? {}),
+      });
+      setWordSearchWordLimits({
+        ...defaultWordSearchWordLimits,
+        ...(db.settings.wordSearchWordLimits ?? {}),
+      });
+      setHangmanWordLengths({
+        ...defaultHangmanWordLengths,
+        ...(db.settings.hangmanWordLengths ?? {}),
+      });
+      setLabirintoWordLengths({
+        ...defaultLabirintoWordLengths,
+        ...(db.settings.labirintoWordLengths ?? {}),
       });
       setPairsLimits({ ...defaultPairs, ...(db.settings.pairsLimits ?? {}) });
       setGridSizes({ ...defaultGridSizes, ...(db.settings.gridSizes ?? {}) });
@@ -174,10 +195,6 @@ export function App() {
       setCatchInitialFallTimes({
         ...defaultCatchInitialFallTimes,
         ...(db.settings.catchInitialFallTimes ?? {}),
-      });
-      setWordSearchWordLimits({
-        ...defaultWordSearchWordLimits,
-        ...(db.settings.wordSearchWordLimits ?? {}),
       });
       setIsDatabaseHydrated(true);
       didInitialHydrate.current = true;
@@ -283,9 +300,7 @@ export function App() {
           ...prev,
           wordSearchWords: words,
         }));
-      } catch (err) {
-        console.error("Failed to preload wordsearch content:", err);
-      }
+      } catch (err) {}
     };
 
     const preloadQuizData = async () => {
@@ -299,9 +314,7 @@ export function App() {
           ...prev,
           quizQuestions: quiz,
         }));
-      } catch (err) {
-        console.error("Failed to preload quiz content:", err);
-      }
+      } catch (err) {}
     };
 
     const preloadSoletraData = async () => {
@@ -315,9 +328,7 @@ export function App() {
           ...prev,
           soletraRoundData: { exemplos: rounds },
         }));
-      } catch (err) {
-        console.error("Failed to preload soletra content:", err);
-      }
+      } catch (err) {}
     };
 
     preloadWordSearchData();
@@ -345,6 +356,7 @@ export function App() {
           quiz: { key: "quizQuestions", data: quiz },
           labirinto: { key: "labirintoWords", data: words.map((w) => w.word) },
           soletra: { key: "soletraRoundData", data: { exemplos: rounds } },
+          whac: { key: "whacData", data: words },
         };
 
         const mapping = dataMap[selectedGame];
@@ -354,9 +366,7 @@ export function App() {
             [mapping.key]: mapping.data,
           }));
         }
-      } catch (err) {
-        console.error(`Failed to load game content for ${selectedGame}:`, err);
-      }
+      } catch (err) {}
     };
 
     loadGameData();
@@ -386,9 +396,7 @@ export function App() {
           });
         }
       })
-      .catch(() => {
-        // Falha silenciosa
-      });
+      .catch(() => {});
 
     return () => {
       active = false;
@@ -562,17 +570,20 @@ export function App() {
     setQuizQuestionLimits((prev) => ({ ...prev, [gameId]: valueLimit }));
   };
 
-  const handleSoletraWordLimitChange = (gameId, valueLimit) => {
-    const min = soletraWordBounds.min;
-    const max = soletraWordBounds.max;
-    if (max < 1) {
-      setSoletraWordLimits((prev) => ({ ...prev, [gameId]: 0 }));
-      return;
-    }
+  const handleWordSearchWordLimitChange = (gameId, valueLimit) => {
+    setWordSearchWordLimits((prev) => ({ ...prev, [gameId]: valueLimit }));
+  };
 
-    const numericValue = Number.isFinite(valueLimit) ? valueLimit : min;
-    const safeValue = Math.min(max, Math.max(min, Math.floor(numericValue)));
-    setSoletraWordLimits((prev) => ({ ...prev, [gameId]: safeValue }));
+  const handleHangmanWordLengthChange = (gameId, value) => {
+    setHangmanWordLengths((prev) => ({ ...prev, [gameId]: value }));
+  };
+
+  const handleLabirintoWordLengthChange = (gameId, value) => {
+    setLabirintoWordLengths((prev) => ({ ...prev, [gameId]: value }));
+  };
+
+  const handleSoletraWordLimitChange = (gameId, valueLimit) => {
+    setSoletraWordLimits((prev) => ({ ...prev, [gameId]: valueLimit }));
   };
 
   const handleCatchInitialFallTimeChange = (gameId, valueSeconds) => {
@@ -582,18 +593,55 @@ export function App() {
     setCatchInitialFallTimes((prev) => ({ ...prev, [gameId]: safeValue }));
   };
 
-  const handleWordSearchWordLimitChange = (gameId, valueLimit) => {
-    const min = wordSearchWordBounds.min;
-    const max = wordSearchWordBounds.max;
-    if (max < 1) {
-      setWordSearchWordLimits((prev) => ({ ...prev, [gameId]: 0 }));
-      return;
-    }
+  const gameKey = String(selectedGame || "").trim();
 
-    const numericValue = Number.isFinite(valueLimit) ? valueLimit : min;
-    const safeValue = Math.min(max, Math.max(min, Math.floor(numericValue)));
-    setWordSearchWordLimits((prev) => ({ ...prev, [gameId]: safeValue }));
-  };
+  const gameDataMemo = useMemo(
+    () => ({
+      symbols: gameData.memorySymbols,
+      questions: gameData.quizQuestions,
+      words:
+        gameKey === "hangman"
+          ? (gameData.hangmanWords || []).filter(
+              (w) => w.length === (hangmanWordLengths[gameKey] || 5),
+            )
+          : gameKey === "labirinto"
+            ? (gameData.labirintoWords || []).filter(
+                (w) => w.length === (labirintoWordLengths[gameKey] || 5),
+              )
+            : gameData.hangmanWords ||
+              gameData.wordSearchWords ||
+              gameData.labirintoWords,
+      rounds: gameData.soletraRoundData?.exemplos,
+    }),
+    [gameKey, gameData, hangmanWordLengths, labirintoWordLengths],
+  );
+
+  const gameConfigMemo = useMemo(
+    () => ({
+      timeLimitSeconds: effectiveTimeLimit(gameKey) || 30,
+      pairCount: pairsLimits && pairsLimits[gameKey] ? pairsLimits[gameKey] : 6,
+      gridSize: gameKey === "labirinto" ? 8 : gridSizes[gameKey] || 12,
+      questionLimit: quizQuestionLimits[gameKey] || 5,
+      wordLimit:
+        gameKey === "hangman"
+          ? hangmanWordLengths[gameKey] || 5
+          : gameKey === "labirinto"
+            ? labirintoWordLengths[gameKey] || 5
+            : soletraWordLimits[gameKey] || 3,
+      wordSearchWordLimit: wordSearchWordLimits[gameKey] || 5,
+      initialFallTimeSeconds: catchInitialFallTimes[gameKey] || 10,
+    }),
+    [
+      gameKey,
+      pairsLimits,
+      gridSizes,
+      quizQuestionLimits,
+      hangmanWordLengths,
+      labirintoWordLengths,
+      soletraWordLimits,
+      catchInitialFallTimes,
+    ],
+  );
 
   useEffect(() => {
     const min = wordSearchWordBounds.min;
@@ -664,7 +712,7 @@ export function App() {
 
     const timeBonus = timedOut
       ? 0
-      : Math.max(0, Number(remainingSeconds || 0)) * 5;
+      : Math.max(0, Number(remainingSeconds || 0)) * 1;
     const totalPoints = Number(points || 0) + timeBonus;
 
     const updateLocalRanking = () => {
@@ -813,6 +861,8 @@ export function App() {
             catchInitialFallTimes={catchInitialFallTimes}
             wordSearchWordLimits={wordSearchWordLimits}
             wordSearchWordBounds={wordSearchWordBounds}
+            hangmanWordLengths={hangmanWordLengths}
+            labirintoWordLengths={labirintoWordLengths}
             pairsLimits={pairsLimits}
             gridSizes={gridSizes}
             quizQuestionBounds={quizQuestionBounds}
@@ -822,6 +872,8 @@ export function App() {
             onTimeLimitChange={handleTimeLimitChange}
             onCatchInitialFallTimeChange={handleCatchInitialFallTimeChange}
             onWordSearchWordLimitChange={handleWordSearchWordLimitChange}
+            onHangmanWordLengthChange={handleHangmanWordLengthChange}
+            onLabirintoWordLengthChange={handleLabirintoWordLengthChange}
             onPairsChange={handlePairsChange}
             onGridSizeChange={handleGridSizeChange}
             onQuizLimitChange={handleQuizLimitChange}
@@ -898,19 +950,92 @@ export function App() {
                 transition: "opacity 0.2s",
               }}
             >
-              <ActiveGame
-                key={`${selectedGame}-${gameSessionKey}`}
-                onScore={handleScore}
-                timeLimitSeconds={effectiveTimeLimit(selectedGame)}
-                initialFallTimeSeconds={catchInitialFallTimes[selectedGame]}
-                wordSearchWordLimit={wordSearchWordLimits[selectedGame]}
-                ranking={[]}
-                pairCount={pairsLimits[selectedGame]}
-                gridSize={gridSizes[selectedGame]}
-                questionLimit={quizQuestionLimits[selectedGame]}
-                wordLimit={soletraWordLimits[selectedGame]}
-                onPlayAgain={handlePlayAgain}
-              />
+              {(() => {
+                const commonProps = {
+                  onScore: handleScore,
+                  onPlayAgain: handlePlayAgain,
+                  ranking: [],
+                };
+                const gameKeyId = `${gameKey}-${gameSessionKey}`;
+
+                if (gameKey === "memory")
+                  return (
+                    <MemoryGame
+                      key={gameKeyId}
+                      {...commonProps}
+                      data={gameDataMemo}
+                      config={gameConfigMemo}
+                    />
+                  );
+                if (gameKey === "quiz")
+                  return (
+                    <QuizGame
+                      key={gameKeyId}
+                      {...commonProps}
+                      data={gameDataMemo}
+                      config={gameConfigMemo}
+                    />
+                  );
+                if (gameKey === "hangman")
+                  return (
+                    <HangmanGame
+                      key={gameKeyId}
+                      {...commonProps}
+                      data={gameDataMemo}
+                      config={gameConfigMemo}
+                    />
+                  );
+                if (gameKey === "wordsearch")
+                  return (
+                    <WordSearchGame
+                      key={gameKeyId}
+                      {...commonProps}
+                      data={gameDataMemo}
+                      config={gameConfigMemo}
+                    />
+                  );
+                if (gameKey === "labirinto")
+                  return (
+                    <LabirintoGame
+                      key={gameKeyId}
+                      {...commonProps}
+                      data={gameDataMemo}
+                      config={gameConfigMemo}
+                    />
+                  );
+                if (gameKey === "soletra")
+                  return (
+                    <SoletraGame
+                      key={gameKeyId}
+                      {...commonProps}
+                      data={gameDataMemo}
+                      config={gameConfigMemo}
+                    />
+                  );
+                if (gameKey === "catch")
+                  return (
+                    <CatchGame
+                      key={gameKeyId}
+                      {...commonProps}
+                      data={gameDataMemo}
+                      config={gameConfigMemo}
+                      initialFallTimeSeconds={
+                        gameConfigMemo.initialFallTimeSeconds
+                      }
+                    />
+                  );
+                if (gameKey === "whac")
+                  return (
+                    <WhacGame
+                      key={gameKeyId}
+                      {...commonProps}
+                      data={gameDataMemo}
+                      config={gameConfigMemo}
+                    />
+                  );
+
+                return <p>Jogo não encontrado.</p>;
+              })()}
             </div>
           ) : (
             <p>Jogo não encontrado.</p>

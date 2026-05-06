@@ -17,7 +17,7 @@ import { calcularPontos } from "../../utils/scoring";
  */
 export default function useMemoryGameLogic({
     data = {},
-    settings = {},
+    config = {},
     onScore,
     onRoundComplete,
     onGameOver,
@@ -27,7 +27,7 @@ export default function useMemoryGameLogic({
         timeLimitSeconds = 30,
         pairCount = null,
         seed = null,
-    } = settings;
+    } = config;
 
     const noSymbols = symbols.length === 0;
     const previewTimer = useRef(null);
@@ -41,7 +41,7 @@ export default function useMemoryGameLogic({
                     ? Math.random
                     : mulberry32(Number(seed) + Number(runKey));
 
-            const maxPairs = pairCount ?? symbols.length;
+            const maxPairs = config.pairCount ?? symbols.length;
             const shuffledSymbols = shuffle(symbols, rng);
             const selected = shuffledSymbols.slice(
                 0,

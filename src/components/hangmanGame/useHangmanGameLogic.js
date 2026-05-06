@@ -19,7 +19,7 @@ const DEFAULT_MAX_LIVES = 5;
  */
 export default function useHangmanGameLogic({
     data = {},
-    settings = {},
+    config = {},
     onScore,
     onRoundComplete,
     onGameOver,
@@ -28,7 +28,7 @@ export default function useHangmanGameLogic({
     const {
         timeLimitSeconds = 30,
         maxLives = DEFAULT_MAX_LIVES,
-    } = settings;
+    } = config;
 
     // ─── Dados derivados ─────────────────────────────────────────────
     const normalizedWords = useMemo(

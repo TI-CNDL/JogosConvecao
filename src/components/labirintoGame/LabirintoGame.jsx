@@ -3,7 +3,7 @@ import "./labirintoGame.style.css";
 
 export default function LabirintoGame({
   data = {},
-  settings = {},
+  config = {},
   sessionScore,
   onScore,
   onRoundComplete,
@@ -11,7 +11,7 @@ export default function LabirintoGame({
 }) {
   const logic = useLabirintoLogic({
     data,
-    settings,
+    config,
     sessionScore,
     onScore,
     onRoundComplete,

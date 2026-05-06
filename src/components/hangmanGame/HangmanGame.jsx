@@ -14,7 +14,7 @@ import "./hangmanGame.style.css";
  */
 export default function HangmanGame({
     data = {},
-    settings = {},
+    config = {},
     ranking = [],
     onScore,
     onRoundComplete,
@@ -34,7 +34,7 @@ export default function HangmanGame({
         currentPoints,
         pickLetter,
         resetGame,
-    } = useHangmanGameLogic({ data, settings, onScore, onRoundComplete, onGameOver });
+    } = useHangmanGameLogic({ data, config, onScore, onRoundComplete, onGameOver });
 
     return (
         <div className="hangman-game panel">

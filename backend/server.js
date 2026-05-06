@@ -393,12 +393,12 @@ app.post('/api/admin/:resource', async (req, res) => {
         if (!config) return;
 
         const body = req.body;
-        
+
         // Se for um array, processa cada item (Bulk)
         if (Array.isArray(body)) {
             const payloads = body.map(item => normalizeAdminPayload(req.params.resource, item)).filter(p => !!p);
             if (payloads.length === 0) return res.status(400).json({ error: 'invalid payloads' });
-            
+
             const results = [];
             for (const p of payloads) {
                 const item = await config.model.create(p);
@@ -551,10 +551,10 @@ app.delete('/api/admin/:resource/:id', async (req, res) => {
         return res.json({ ok: true });
     } catch (err) {
         console.error('Failed to delete admin record', err);
-        return res.status(500).json({ 
-            error: 'failed to delete record', 
+        return res.status(500).json({
+            error: 'failed to delete record',
             details: err.message,
-            stack: err.stack 
+            stack: err.stack
         });
     }
 });
@@ -577,7 +577,7 @@ app.post('/api/admin/reset', async (req, res) => {
         await sequelize.sync();
         await seedIfNeeded();
 
-        app.listen(PORT, '0.0.0.0', () => {});
+        app.listen(PORT, '0.0.0.0', () => { });
     } catch (err) {
         process.exit(1);
     }

@@ -6,6 +6,8 @@ export default function MenuGrid({
   catchInitialFallTimes,
   wordSearchWordLimits,
   wordSearchWordBounds,
+  hangmanWordLengths,
+  labirintoWordLengths,
   pairsLimits,
   gridSizes,
   quizQuestionBounds,
@@ -15,6 +17,8 @@ export default function MenuGrid({
   onTimeLimitChange,
   onCatchInitialFallTimeChange,
   onWordSearchWordLimitChange,
+  onHangmanWordLengthChange,
+  onLabirintoWordLengthChange,
   onPairsChange,
   onGridSizeChange,
   onQuizLimitChange,
@@ -125,10 +129,25 @@ export default function MenuGrid({
             </>
           )}
           {game.id === "labirinto" && (
-            <label className="time-field">
-              <span>Tamanho do labirinto</span>
-              <input type="text" value="8 x 8" readOnly />
-            </label>
+            <>
+              <label className="time-field">
+                <span>Tamanho do labirinto</span>
+                <input type="text" value="8 x 8" readOnly />
+              </label>
+              <label className="time-field">
+                <span>Qtd. de letras</span>
+                <input
+                  type="number"
+                  min={3}
+                  max={12}
+                  step={1}
+                  value={labirintoWordLengths?.[game.id] ?? 5}
+                  onChange={(e) =>
+                    onLabirintoWordLengthChange(game.id, Number(e.target.value))
+                  }
+                />
+              </label>
+            </>
           )}
           {game.id === "quiz" && (
             <label className="time-field">
@@ -165,6 +184,21 @@ export default function MenuGrid({
                   onSoletraWordLimitChange(game.id, Number(e.target.value))
                 }
                 disabled={(soletraWordBounds?.max ?? 0) < 1}
+              />
+            </label>
+          )}
+          {game.id === "hangman" && (
+            <label className="time-field">
+              <span>Qtd. de letras</span>
+              <input
+                type="number"
+                min={3}
+                max={12}
+                step={1}
+                value={hangmanWordLengths?.[game.id] ?? 5}
+                onChange={(e) =>
+                  onHangmanWordLengthChange(game.id, Number(e.target.value))
+                }
               />
             </label>
           )}

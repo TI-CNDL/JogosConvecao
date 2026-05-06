@@ -6,7 +6,7 @@ import "./memoryGame.style.css";
  *
  * Props (contrato padronizado):
  *   data             — { symbols: string[] }
- *   settings         — { timeLimitSeconds, pairCount, seed }
+ *   config           — { timeLimitSeconds, pairCount, seed }
  *   ranking          — Array de objetos para o mini-ranking
  *   onScore          — Callback disparado ao finalizar partida
  *   onRoundComplete  — Callback disparado ao completar todos os pares
@@ -14,7 +14,7 @@ import "./memoryGame.style.css";
  */
 export default function MemoryGame({
   data = {},
-  settings = {},
+  config = {},
   ranking = [],
   onScore,
   onRoundComplete,
@@ -35,7 +35,7 @@ export default function MemoryGame({
     resetGame,
   } = useMemoryGameLogic({
     data,
-    settings,
+    config,
     onScore,
     onRoundComplete,
     onGameOver,

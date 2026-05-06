@@ -319,13 +319,13 @@ const getSequenceStateFromTrail = ({ trail, checkpointMap, grid, word }) => {
 
 export default function useLabirintoLogic({
     data = {},
-    settings = {},
+    config = {},
     onScore,
     onRoundComplete,
     onGameOver,
 }) {
     const { words = [] } = data;
-    const { timeLimitSeconds = 120, gridSize = DEFAULT_GRID_SIZE } = settings;
+    const { timeLimitSeconds = 120, gridSize = DEFAULT_GRID_SIZE } = config;
 
     const [round, setRound] = useState(() => generateRound(words, gridSize));
     const [progress, setProgress] = useState(-1);
