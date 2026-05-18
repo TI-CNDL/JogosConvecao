@@ -1,21 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const GRID_SIZE = 12; // padrão base do jogo
-const ICONS_TARGET = ["⭐", "📦", "🛒", "📱", "💳"];
-const ICONS_DECOY = ["🎲", "🎪", "🎨", "🎭", "🎸"];
-const MIN_ITEM_TIME = 700;
-const MAX_ITEM_TIME = 1400;
-const MAX_ACTIVE_ITEMS = 5;
-const SPAWN_INTERVAL = 320;
+// ─── CONFIGURAÇÕES E CONSTANTES GLOBAIS DO JOGO ──────────────────────────
+const GRID_SIZE = 12; // Quantidade padrão de slots/buracos na grade do jogo
+const ICONS_TARGET = ["⭐", "📦", "🛒", "📱", "💳"]; // Ícones que representam os alvos válidos
+const ICONS_DECOY = ["🎲", "🎪", "🎨", "🎭", "🎸"];  // Ícones de distratores (decoys)
+const MIN_ITEM_TIME = 700;  // Duração mínima que um item permanece ativo no slot (em ms)
+const MAX_ITEM_TIME = 1400; // Duração máxima que um item permanece ativo no slot (em ms)
+const MAX_ACTIVE_ITEMS = 5; // Número máximo de itens (alvos + distratores) ativos simultaneamente
+const SPAWN_INTERVAL = 320; // Intervalo de tempo entre as tentativas de spawn de novos itens (em ms)
 
 // ── Cotas fixas base (referência: 30 segundos) ────────────────────
-// Targets escalam proporcionalmente ao tempo (base: 50 em 30s); decoys são INFINITOS.
+// Targets escalam proporcionalmente ao tempo de partida (base: 50 alvos em 30s); decoys são infinitos.
 const BASE_TIME_SECONDS = 30;
 const BASE_TARGET_COUNT = 50;
 
 /**
- * Calcula a cota de targets para a duração da partida.
- * 30s → 50, 60s → 100, 45s → 75, etc.
+ * Calcula a cota total de alvos (targets) que devem aparecer durante a partida,
+ * escalando proporcionalmente ao tempo configurado (ex: 30s → 50 alvos, 60s → 100 alvos).
+ *
+ * @param {number} timeLimitSeconds - Duração total da partida em segundos.
+ * @returns {number} Quantidade total planejada de alvos.
  */
 const computeTargetQuota = (timeLimitSeconds) => {
     const scale = Math.max(0, timeLimitSeconds) / BASE_TIME_SECONDS;
@@ -23,16 +27,23 @@ const computeTargetQuota = (timeLimitSeconds) => {
 };
 
 /**
- * Hook que encapsula a lógica do Whac-A-Mole (Omni-Catch).
+ * CUSTOM HOOK DE LÓGICA DO JOGO WHAC-A-MOLE / OMNI-CATCH (useWhacGameLogic.js)
  *
- * Vários itens podem ficar ativos ao mesmo tempo, cada um com sua própria duração.
- * Apenas um item-alvo pode existir por vez; os demais são distratores.
+ * Gerencia o ciclo de vida completo do minijogo de acerto rápido. Controla o surgimento (spawn)
+ * contínuo e aleatório de itens (alvos válidos e distratores falsos) em uma grade de slots,
+ * calcula durações individuais de permanência, processa cliques do jogador, gerencia o cronômetro
+ * e calcula a pontuação final baseada no percentual de acertos da cota planejada.
  *
- * A quantidade total de targets é planejada no início da partida.
- * Decoys são infinitos.
+ * IMPORTANTE PARA PERFORMANCE E COMPATIBILIDADE COM REACT STRICT MODE:
+ * Toda a mutação de referências de contagem (`scoreRef`, `targetsHitRef`, `targetQuotaRef`) é realizada
+ * por meio de `useRef` e executada fora das funções de atualização de estado (`setActiveSlots`) para evitar
+ * dupla contagem ou inconsistências causadas pelas renderizações extras do StrictMode.
  *
- * IMPORTANTE: Toda mutação de refs de contagem é feita FORA do setActiveSlots
- * updater para evitar dupla contagem em React StrictMode.
+ * @param {Object} props - Propriedades de configuração e callbacks.
+ * @param {Object} props.data - Dados auxiliares da rodada (opcional).
+ * @param {Object} props.settings - Configurações da partida (ex: `timeLimitSeconds`, `gridSize`).
+ * @param {Function} props.onScore - Callback disparada para registrar a pontuação final ao término.
+ * @param {Function} props.onGameOver - Callback disparada ao encerrar a partida.
  */
 export default function useWhacGameLogic({
     data = {},
@@ -40,52 +51,64 @@ export default function useWhacGameLogic({
     onScore,
     onGameOver,
 }) {
+    // Configurações iniciais com valores padrão de fallback
     const timeLimitSeconds = settings.timeLimitSeconds ?? 30;
     const gridSize = Number.isFinite(settings.gridSize)
         ? settings.gridSize
         : GRID_SIZE;
 
-    // ─── Estado do Jogo ──────────────────────────────────────────────
-    const [finalScore, setFinalScore] = useState(null);
-    const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
-    const [gameActive, setGameActive] = useState(false);
-    const [gameStarted, setGameStarted] = useState(false);
-    const [finished, setFinished] = useState(false);
-    const [reported, setReported] = useState(false);
+    // ─── ESTADOS REATIVOS DO JOGO (Para renderização na View) ────────
+    const [finalScore, setFinalScore] = useState(null);       // Pontuação final calculada (0 a 100)
+    const [timeLeft, setTimeLeft] = useState(timeLimitSeconds); // Tempo restante no cronômetro
+    const [gameActive, setGameActive] = useState(false);      // Flag indicando se o loop do jogo está rodando
+    const [gameStarted, setGameStarted] = useState(false);    // Flag indicando se a partida já saiu da tela inicial
+    const [finished, setFinished] = useState(false);          // Flag indicando encerramento da partida
+    const [reported, setReported] = useState(false);          // Flag para evitar múltiplos envios da pontuação
 
-    // ─── Alvo escolhido para toda a partida ──────────────────────────
+    // ─── ALVO ESCOLHIDO PARA A PARTIDA ───────────────────────────────
+    // Seleciona aleatoriamente um ícone da lista de alvos válidos para ser o objetivo fixo do jogador
     const [targetIcon, setTargetIcon] = useState(() =>
         ICONS_TARGET[Math.floor(Math.random() * ICONS_TARGET.length)],
     );
 
-    // ─── Itens ativos ────────────────────────────────────────────────
+    // ─── LISTA DE ITENS ATIVOS NOS SLOTS ─────────────────────────────
     const [activeSlots, setActiveSlots] = useState([]);
 
-    // ─── IDs clicados (feedback visual verde) ────────────────────────
+    // ─── CONTROLE DE FEEDBACK VISUAL (Cliques validados) ─────────────
+    // Armazena os IDs dos itens clicados para aplicar a classe CSS de flash verde temporário
     const [clickedIds, setClickedIds] = useState(new Set());
 
-    // ─── Refs para controle ─────────────────────────────────────────
-    const spawnLoopRef = useRef(null);
-    const countdownRef = useRef(null);
-    const hideTimersRef = useRef(new Map());
-    const scoreRef = useRef(0);
-    const targetsHitRef = useRef(0);
-    const targetsAppearedRef = useRef(0);
-    const wrongClicksRef = useRef(0);
-    const timeLeftRef = useRef(timeLimitSeconds);
-    const isGameRunningRef = useRef(false);
-    const nextItemIdRef = useRef(1);
+    // ─── REFERÊNCIAS MUTÁVEIS (useRef para alta performance) ─────────
+    const spawnLoopRef = useRef(null);       // Referência do setInterval do loop de spawn
+    const countdownRef = useRef(null);       // Referência do setInterval do cronômetro regressivo
+    const hideTimersRef = useRef(new Map()); // Mapa de temporizadores (setTimeout) para remoção automática de cada item
+    const scoreRef = useRef(0);              // Pontuação bruta acumulada
+    const targetsHitRef = useRef(0);         // Contagem de alvos legítimos acertados pelo jogador
+    const targetsAppearedRef = useRef(0);    // Contagem total de alvos que já surgiram na grade
+    const wrongClicksRef = useRef(0);        // Contagem de cliques incorretos (em distratores)
+    const timeLeftRef = useRef(timeLimitSeconds); // Espelho mutável do tempo restante
+    const isGameRunningRef = useRef(false);  // Flag de execução para controle interno do loop
+    const nextItemIdRef = useRef(1);         // Gerador de IDs únicos para cada item que surge na grade
 
-    // ─── Ref espelho dos slots (evita mutação de refs dentro do updater) ──
+    // Ref espelho da lista de slots ativos (garante acesso instantâneo e limpo dentro de temporizadores)
     const activeSlotsRef = useRef([]);
 
-    // ─── Ref de cota (só targets têm cota; decoys são infinitos) ────
+    // Ref da cota restante de alvos (distratores não consomem cota e surgem infinitamente)
     const targetQuotaRef = useRef(0);
 
+    /**
+     * Gera um tempo de permanência aleatório para um item, respeitando os limites mínimo e máximo.
+     */
     const getRandomItemTime = useCallback(() => {
         return MIN_ITEM_TIME + Math.floor(Math.random() * (MAX_ITEM_TIME - MIN_ITEM_TIME + 1));
     }, []);
 
+    /**
+     * Seleciona aleatoriamente o índice de um slot que esteja atualmente vazio.
+     *
+     * @param {Array} currentSlots - Lista atual de itens ativos.
+     * @returns {number|null} Índice do slot livre ou null caso a grade esteja cheia.
+     */
     const pickFreeSlot = useCallback((currentSlots) => {
         const occupied = new Set(currentSlots.map((slot) => slot.index));
         const freeSlots = Array.from({ length: gridSize }, (_, i) => i).filter(
@@ -95,6 +118,9 @@ export default function useWhacGameLogic({
         return freeSlots[Math.floor(Math.random() * freeSlots.length)];
     }, [gridSize]);
 
+    /**
+     * Cancela e limpa o temporizador de remoção automática de um item específico.
+     */
     const clearHideTimer = useCallback((itemId) => {
         const timerId = hideTimersRef.current.get(itemId);
         if (timerId) {
@@ -103,6 +129,9 @@ export default function useWhacGameLogic({
         }
     }, []);
 
+    /**
+     * Agenda a remoção automática de um item do slot após o término da sua duração calculada.
+     */
     const scheduleItemRemoval = useCallback(
         (item) => {
             clearHideTimer(item.id);
@@ -116,13 +145,19 @@ export default function useWhacGameLogic({
         [clearHideTimer],
     );
 
-    // ─── Spawn: a cada tick, tenta criar 1 item se houver vaga ───────
-    // Toda lógica FORA do updater para não sofrer com StrictMode.
+    // ─── LOOP DE SPAWN DE ITENS ──────────────────────────────────────
+    /**
+     * Executado a cada tick do loop principal (`SPAWN_INTERVAL`).
+     * Verifica se há vagas na grade e decide aleatoriamente se o novo item será um alvo legítimo
+     * ou um distrator falso. Ajusta dinamicamente a probabilidade de surgimento de alvos caso a
+     * entrega esteja atrasada em relação ao tempo da partida.
+     */
     const spawnItem = useCallback(() => {
         if (!isGameRunningRef.current) return;
 
         const currentSlots = activeSlotsRef.current;
 
+        // Respeita o limite máximo de itens ativos simultâneos na tela
         if (currentSlots.length >= MAX_ACTIVE_ITEMS) return;
 
         const slotIndex = pickFreeSlot(currentSlots);
@@ -131,13 +166,16 @@ export default function useWhacGameLogic({
         const tgtLeft = targetQuotaRef.current;
         let isTarget = false;
 
+        // Lógica de balanceamento dinâmico do surgimento de alvos
         if (tgtLeft > 0) {
             const elapsed = timeLimitSeconds - timeLeftRef.current;
             const progress = elapsed / (timeLimitSeconds || 1);
-            // Se estamos atrasados na entrega, aumenta a chance para 80%
+            
+            // Calcula a cota esperada até o momento atual da partida
             const expectedQuotaUsed = progress * computeTargetQuota(timeLimitSeconds);
             const isBehind = (computeTargetQuota(timeLimitSeconds) - tgtLeft) < expectedQuotaUsed;
             
+            // Se o jogo estiver atrasado na entrega de alvos, aumenta a chance de spawn para 80% (senão 40%)
             isTarget = Math.random() < (isBehind ? 0.80 : 0.40);
         }
 
@@ -146,6 +184,7 @@ export default function useWhacGameLogic({
             targetsAppearedRef.current += 1;
         }
 
+        // Constrói o objeto do novo item
         const nextItem = {
             id: nextItemIdRef.current++,
             index: slotIndex,
@@ -162,7 +201,10 @@ export default function useWhacGameLogic({
         scheduleItemRemoval(nextItem);
     }, [getRandomItemTime, pickFreeSlot, scheduleItemRemoval, targetIcon]);
 
-    // ─── Iniciar o jogo ─────────────────────────────────────────────
+    // ─── INICIALIZAÇÃO DA PARTIDA (startGame) ────────────────────────
+    /**
+     * Reinicia todas as referências, temporizadores e pontuações para iniciar um novo jogo.
+     */
     const startGame = useCallback(() => {
         targetQuotaRef.current = computeTargetQuota(timeLimitSeconds);
 
@@ -183,7 +225,7 @@ export default function useWhacGameLogic({
         isGameRunningRef.current = true;
     }, [timeLimitSeconds]);
 
-    // ─── Timer de contagem regressiva ────────────────────────────────
+    // ─── GESTÃO DO CRONÔMETRO REGRESSIVO ─────────────────────────────
     useEffect(() => {
         if (!gameActive || finished) return;
 
@@ -191,6 +233,7 @@ export default function useWhacGameLogic({
             timeLeftRef.current -= 1;
             setTimeLeft(timeLeftRef.current);
 
+            // Encerra a partida ao zerar o cronômetro
             if (timeLeftRef.current <= 0) {
                 setFinished(true);
                 setGameActive(false);
@@ -205,7 +248,7 @@ export default function useWhacGameLogic({
         };
     }, [gameActive, finished]);
 
-    // ─── Loop do jogo: spawn contínuo a cada 320ms ──────────────────
+    // ─── EXECUÇÃO DO LOOP PRINCIPAL DE SPAWN ─────────────────────────
     useEffect(() => {
         if (!gameActive || finished) return;
 
@@ -222,16 +265,15 @@ export default function useWhacGameLogic({
         return clearTimers;
     }, [finished, gameActive, spawnItem]);
 
-    // ─── Reportar score ao terminar ──────────────────────────────────
+    // ─── REGISTRO E ENVIO DA PONTUAÇÃO FINAL ─────────────────────────
     useEffect(() => {
         if (!finished || reported) return;
 
-        // Calcula a porcentagem de acertos baseada na cota inicial
+        // Calcula a porcentagem de acertos baseada na cota inicial planejada
         const totalPlanned = computeTargetQuota(timeLimitSeconds);
         const hitCount = targetsHitRef.current;
         
-        // Cada acerto vale (100 / totalPlanned) pontos. 
-        // Se acertar todos, terá 100 pontos base.
+        // Cada acerto vale proporcionalmente (100 / totalPlanned) pontos
         const baseScore = Math.floor((hitCount / (totalPlanned || 1)) * 100);
         const finalPts = Math.max(0, baseScore);
         
@@ -250,7 +292,13 @@ export default function useWhacGameLogic({
         setReported(true);
     }, [finished, reported, onScore, onGameOver, timeLimitSeconds]);
 
-    // ─── Handle click ────────────────────────────────────────────────
+    // ─── PROCESSAMENTO DE CLIQUES NOS SLOTS (handleSlotClick) ────────
+    /**
+     * Valida o clique do jogador em um slot da grade.
+     * Cancela o temporizador de desaparecimento do item, verifica se era um alvo legítimo
+     * (incrementando a pontuação e checando vitória antecipada) ou um distrator falso.
+     * Aplica feedback visual temporário (verde) e remove o item do slot.
+     */
     const handleSlotClick = useCallback(
         (slotIndex) => {
             const clickedSlot = activeSlotsRef.current.find((s) => s.index === slotIndex);
@@ -262,11 +310,11 @@ export default function useWhacGameLogic({
 
             if (clickedSlot.isTarget) {
                 targetsHitRef.current += 1;
-                // Pontuação em tempo real baseada na porcentagem do total
+                // Atualiza a pontuação em tempo real baseada no percentual de acertos
                 const currentPct = Math.floor((targetsHitRef.current / (totalPlanned || 1)) * 100);
                 setFinalScore(currentPct);
                 
-                // Se acertou todos os alvos planejados, finaliza o jogo antecipadamente
+                // Se o jogador acertou todos os alvos planejados, encerra a partida com vitória antecipada
                 if (targetsHitRef.current >= totalPlanned) {
                     setFinished(true);
                     setGameActive(false);
@@ -274,15 +322,15 @@ export default function useWhacGameLogic({
                 }
             } else {
                 wrongClicksRef.current += 1;
-                // Penalidade opcional ou apenas manter a porcentagem atual
-                // Vou manter o cálculo de porcentagem, o erro apenas não soma pontos
+                // Mantém a porcentagem atual sem somar pontos (distratores não penalizam o score base)
                 const currentPct = Math.floor((targetsHitRef.current / (totalPlanned || 1)) * 100);
                 setFinalScore(currentPct);
             }
 
-            // Marcar como clicado (verde) por 250ms, depois remover
+            // Marca o item como clicado para ativar o flash verde de feedback na View
             setClickedIds((prev) => new Set(prev).add(clickedSlot.id));
 
+            // Remove o item e o estado de clique após 250ms de animação
             setTimeout(() => {
                 activeSlotsRef.current = activeSlotsRef.current.filter((s) => s.id !== clickedSlot.id);
                 setActiveSlots(activeSlotsRef.current);
@@ -296,6 +344,7 @@ export default function useWhacGameLogic({
         [clearHideTimer],
     );
 
+    // Retorna a API pública do Custom Hook para consumo da View
     return {
         score: finalScore,
         timeLeft,

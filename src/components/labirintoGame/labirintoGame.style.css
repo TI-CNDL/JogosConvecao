@@ -1,7 +1,15 @@
+/* ==========================================================================
+   ESTILOS PRINCIPAIS DO JOGO LABIRINTO (LABIRINTOGAME)
+   Contém as regras de layout do painel, grid de botões, rastro (trail),
+   paredes (walls) e responsividade para dispositivos móveis.
+   ========================================================================== */
+
+/* Contêiner principal do painel do labirinto */
 .labirinto-panel {
     gap: 14px;
 }
 
+/* Caixa superior que exibe as letras já coletadas / progresso da palavra */
 .labirinto-word-progress {
     display: flex;
     gap: 8px;
@@ -13,34 +21,39 @@
     padding: 10px;
 }
 
+/* Estilo individual de cada letra (círculo) na barra de progresso */
 .labirinto-word-progress-char {
     width: 42px;
     height: 42px;
-    border-radius: 999px;
+    border-radius: 999px; /* Formato perfeitamente circular */
     display: grid;
-    place-items: center;
+    place-items: center;  /* Centraliza o texto vertical e horizontalmente */
     font-weight: 800;
     background: #0f172a;
     border: 1px solid #334155;
     color: #cbd5e1;
 }
 
+/* Letra já alcançada/passada pelo jogador (destaque em azul/ciano) */
 .labirinto-word-progress-char.done {
     background: #0f2a3f;
     border-color: #38bdf8;
     color: #dbeafe;
 }
 
+/* Próxima letra esperada no percurso (destaque com borda interna verde) */
 .labirinto-word-progress-char.next {
     box-shadow: 0 0 0 2px #22c55e inset;
 }
 
+/* Texto exibido quando a palavra ainda não começou a ser formada */
 .labirinto-word-progress-empty {
     color: #94a3b8;
     font-size: 14px;
     text-align: center;
 }
 
+/* Caixa de dicas para orientar o jogador sobre como interagir */
 .labirinto-hint {
     border: 1px solid #1f2937;
     background: #0b1220;
@@ -50,18 +63,21 @@
     font-size: 14px;
 }
 
+/* Mensagem específica da dica gerada dinamicamente (destaque em azul claro) */
 .labirinto-hint-msg {
     display: block;
     margin-top: 6px;
     color: #93c5fd;
 }
 
+/* Contêiner dos botões de ação (Limpar e Dica) */
 .labirinto-actions {
     display: flex;
     gap: 10px;
     justify-content: center;
 }
 
+/* Área externa do tabuleiro, alinhando o grid ao centro e desativando ações de toque nativas (scroll/pinch) */
 .labirinto-board {
     width: 80% !important;
     display: flex;
@@ -69,12 +85,13 @@
     justify-content: center;
     position: relative;
     margin: 0 auto;
-    touch-action: none;
+    touch-action: none; /* Fundamental para permitir o arrastar do dedo no mobile sem rolar a página */
 }
 
+/* O tabuleiro principal (grid) onde ficam as células/botões */
 .labirinto-grid {
     display: grid;
-    grid-template-columns: repeat(8, minmax(0, 1fr));
+    grid-template-columns: repeat(8, minmax(0, 1fr)); /* Estrutura padrão de 8 colunas (ajustada via estilo inline no JSX se necessário) */
     gap: 0;
     background: #f8fafc;
     border: 1px solid #1f2937;
@@ -82,18 +99,20 @@
     padding: 0;
     overflow: hidden;
     position: relative;
-    z-index: 1;
+    z-index: 1; /* Fica na camada base abaixo do overlay */
 }
 
+/* Camada de sobreposição (overlay) que desenha as paredes e o rastro por cima do grid */
 .labirinto-overlay {
     position: absolute;
-    inset: 0;
-    z-index: 2;
-    pointer-events: none;
+    inset: 0; /* Ocupa 100% da largura e altura do tabuleiro */
+    z-index: 2; /* Fica acima das células */
+    pointer-events: none; /* Garante que os cliques/toques atravessem o overlay e cheguem nos botões abaixo */
 }
 
+/* Estilo padrão de cada célula (botão) do labirinto */
 .labirinto-panel button.labirinto-cell {
-    aspect-ratio: 1;
+    aspect-ratio: 1; /* Mantém a célula sempre quadrada */
     border-radius: 0;
     display: grid;
     place-items: center;
@@ -108,14 +127,16 @@
     z-index: 1;
 }
 
+/* Célula por onde o jogador já passou (fundo azul claro) */
 .labirinto-panel button.labirinto-cell.trail {
     background: #dbeafe;
 }
 
+/* O círculo interno que envolve a letra dentro da célula */
 .labirinto-panel button.labirinto-cell .labirinto-cell-letter {
     width: min(80%, 36px);
     height: min(80%, 36px);
-    border-radius: 999px;
+    border-radius: 999px; /* Círculo perfeito */
     display: grid;
     place-items: center;
     color: #466a93;
@@ -123,49 +144,61 @@
     text-transform: uppercase;
     background: #eef2f7;
     position: relative;
-    z-index: 10;
+    z-index: 10; /* Fica acima do fundo da célula */
 }
 
+/* Letra vazia (célula sem caractere da palavra), mantida invisível */
 .labirinto-panel button.labirinto-cell .labirinto-cell-letter.empty {
     opacity: 0;
     background: transparent;
     box-shadow: none;
 }
 
+/* Célula que serve de checkpoint inicial (destaque azul escuro com texto branco) */
 .labirinto-panel button.labirinto-cell.checkpoint .labirinto-cell-letter {
     background: #4f79a4;
     color: #f8fafc;
 }
 
+/* Célula alvo/destino sugerida pela dica (borda verde vibrante) */
 .labirinto-panel button.labirinto-cell.target .labirinto-cell-letter {
     box-shadow: 0 0 0 3px #22c55e;
 }
 
+/* Segmentos da trilha/rastro (linhas desenhadas entre as células por onde o jogador passa) */
 .labirinto-trail-segment {
     position: absolute;
     background: #7aa2c9;
     border-radius: 999px;
 }
 
+/* Nós/pontos centrais da trilha (bolinhas nas interseções das células) */
 .labirinto-trail-node {
     position: absolute;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%); /* Centraliza exatamente na coordenada X/Y */
     border-radius: 999px;
     background: #7aa2c9;
 }
 
+/* Paredes (barreiras físicas geradas no labirinto para impedir a passagem) */
 .labirinto-wall-segment {
     position: absolute;
     background: #0f172a;
     border-radius: 999px;
 }
 
+/* ==========================================================================
+   RESPONSIVIDADE (DISPOSITIVOS MÓVEIS E TELAS MENORES)
+   Ajusta o tamanho das fontes e dos elementos visuais para telas até 720px.
+   ========================================================================== */
 @media (max-width: 720px) {
+    /* Reduz o tamanho das letras na barra de progresso */
     .labirinto-word-progress-char {
         width: 36px;
         height: 36px;
     }
 
+    /* Reduz a fonte das células do grid para caber perfeitamente na tela mobile */
     .labirinto-panel button.labirinto-cell {
         font-size: 16px;
     }

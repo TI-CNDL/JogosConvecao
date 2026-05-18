@@ -2,20 +2,23 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { normalizeText } from "../../utils/string";
 import { calcularPontos } from "../../utils/scoring";
 
+// Alfabeto padrão disponível no teclado da forca (inclui o 'Ç' para palavras em português)
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZÇ".split("");
+
+// Quantidade padrão de vidas caso não seja informada na configuração
 const DEFAULT_MAX_LIVES = 5;
 
 /**
- * Hook que encapsula toda a lógica do Jogo da Forca.
+ * HOOK DE LÓGICA DO JOGO DA FORCA (useHangmanGameLogic.js)
+ * Encapsula o gerenciamento de estado da partida, escolha aleatória de palavras,
+ * verificação de acertos/erros, contagem regressiva do tempo e disparo de callbacks globais.
  *
- * Contrato de entrada:
- *   data     — { words: string[] }  lista de palavras vinda da API
- *   settings — { timeLimitSeconds, maxLives }  configurações da partida
- *
- * Contrato de saída (callbacks):
- *   onScore(payload)      — disparado quando a partida termina
- *   onRoundComplete()     — disparado quando o jogador acerta a palavra
- *   onGameOver(payload)   — disparado quando perde (tempo/vidas)
+ * @param {Object} props - Propriedades passadas pelo componente visual.
+ * @param {Object} props.data - Objeto contendo a lista de palavras (`words`).
+ * @param {Object} props.config - Configurações da partida (`timeLimitSeconds`, `maxLives`).
+ * @param {Function} props.onScore - Callback acionada ao término do jogo para envio do placar.
+ * @param {Function} props.onRoundComplete - Callback acionada em caso de vitória.
+ * @param {Function} props.onGameOver - Callback acionada em caso de derrota.
  */
 export default function useHangmanGameLogic({
     data = {},
@@ -30,7 +33,9 @@ export default function useHangmanGameLogic({
         maxLives = DEFAULT_MAX_LIVES,
     } = config;
 
-    // ─── Dados derivados ─────────────────────────────────────────────
+    // ─── DADOS DERIVADOS E FILTRAGEM ─────────────────────────────────────────────
+    
+    // Normaliza a lista de palavras garantindo que estejam em letras maiúsculas e sem strings vazias
     const normalizedWords = useMemo(
         () =>
             words
@@ -39,58 +44,66 @@ export default function useHangmanGameLogic({
         [words],
     );
 
+    // Flag indicando se a lista de palavras está completamente vazia
     const noWords = normalizedWords.length === 0;
 
+    // Seleciona aleatoriamente uma palavra da lista normalizada
     const pickRandomWord = useCallback(() => {
         if (normalizedWords.length === 0) return "";
         const idx = Math.floor(Math.random() * normalizedWords.length);
         return normalizedWords[idx];
     }, [normalizedWords]);
 
-    // ─── Estado ──────────────────────────────────────────────────────
-    const [secret, setSecret] = useState(() => pickRandomWord());
-    const [guessed, setGuessed] = useState(new Set());
-    const [lives, setLives] = useState(maxLives);
-    const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
-    const [finished, setFinished] = useState(false);
-    const [timedOut, setTimedOut] = useState(false);
-    const [reported, setReported] = useState(false);
+    // ─── ESTADOS DA PARTIDA ──────────────────────────────────────────────────────
+    const [secret, setSecret] = useState(() => pickRandomWord());     // A palavra secreta atual
+    const [guessed, setGuessed] = useState(new Set());                // Set de letras já adivinhadas/clicadas
+    const [lives, setLives] = useState(maxLives);                     // Contador de vidas restantes
+    const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);       // Cronômetro regressivo em segundos
+    const [finished, setFinished] = useState(false);                  // Flag de encerramento da partida
+    const [timedOut, setTimedOut] = useState(false);                  // Flag de encerramento por tempo esgotado
+    const [reported, setReported] = useState(false);                  // Flag para garantir envio único do placar
 
-    // ─── Métricas derivadas ──────────────────────────────────────────
+    // ─── MÉTRICAS DERIVADAS ──────────────────────────────────────────────────────
+    
+    // Versão da palavra secreta sem acentos para comparação direta com as letras do teclado
     const secretNormalized = useMemo(() => normalizeText(secret), [secret]);
 
+    // String formatada exibida na tela (ex: "C _ S A" para "CASA" com 'C', 'S', 'A' adivinhados)
     const masked = secret
         .split("")
         .map((letter, idx) => (guessed.has(secretNormalized[idx]) ? letter : "_"))
         .join(" ");
 
+    // Condição de vitória: verifica se todas as letras da palavra secreta já estão no Set de palpites
     const won =
         secret.length > 0 &&
         secretNormalized.split("").every((letter) => guessed.has(letter));
 
+    // Quantidade de letras únicas reveladas até o momento
     const revealedCount = secretNormalized
         .split("")
         .filter((letter) => guessed.has(letter)).length;
 
+    // Cálculo da pontuação proporcional ao número de letras reveladas
     const currentPoints = calcularPontos(revealedCount, secret.length || 1);
 
-    // ─── Reset / novo jogo ───────────────────────────────────────────
+    // ─── CONTROLE DE FLUXO (RESET E NOVO JOGO) ───────────────────────────────────
     const resetGame = useCallback(() => {
         setSecret(pickRandomWord());
         setGuessed(new Set());
         setLives(maxLives);
         setTimeLeft(timeLimitSeconds);
-        setFinished(noWords);
+        setFinished(noWords); // Já inicia finalizado caso não haja palavras
         setTimedOut(false);
         setReported(false);
     }, [pickRandomWord, maxLives, timeLimitSeconds, noWords]);
 
-    // Reagir a mudanças nas props de configuração / dados
+    // Efeito para reiniciar a partida automaticamente se as configurações ou lista de palavras mudarem
     useEffect(() => {
         resetGame();
     }, [resetGame]);
 
-    // ─── Timer ───────────────────────────────────────────────────────
+    // ─── CRONÔMETRO REGRESSIVO (TIMER) ───────────────────────────────────────────
     useEffect(() => {
         if (finished || noWords || lives <= 0) return undefined;
         const id = setInterval(() => {
@@ -106,7 +119,7 @@ export default function useHangmanGameLogic({
         return () => clearInterval(id);
     }, [finished, noWords, lives]);
 
-    // ─── Detectar vitória ────────────────────────────────────────────
+    // ─── MONITORAMENTO DE VITÓRIA ────────────────────────────────────────────────
     useEffect(() => {
         if (noWords || finished || lives <= 0) return;
         if (won) {
@@ -114,7 +127,7 @@ export default function useHangmanGameLogic({
         }
     }, [won, finished, noWords, lives]);
 
-    // ─── Reportar pontuação ──────────────────────────────────────────
+    // ─── DISPARO DE CALLBACKS GLOBAIS (PONTUAÇÃO E FIM DE JOGO) ──────────────────
     useEffect(() => {
         if (!finished || reported) return;
 
@@ -126,8 +139,10 @@ export default function useHangmanGameLogic({
             timedOut: timedOut || noWords,
         };
 
+        // Dispara a callback de pontuação geral
         onScore?.(payload);
 
+        // Dispara a callback específica de vitória ou derrota
         if (won) {
             onRoundComplete?.(payload);
         } else {
@@ -148,19 +163,22 @@ export default function useHangmanGameLogic({
         won,
     ]);
 
-    // ─── Ação: chutar letra ──────────────────────────────────────────
+    // ─── MANIPULADOR DE PALPITE (CLIQUE NA LETRA) ────────────────────────────────
     const pickLetter = useCallback(
         (letter) => {
             const normalizedLetter = normalizeText(letter);
             if (won || guessed.has(normalizedLetter) || finished || noWords) return;
+            
+            // Adiciona a letra ao Set de palpites
             setGuessed((prev) => new Set(prev).add(normalizedLetter));
 
+            // Se a letra não existir na palavra secreta, desconta uma vida
             if (!secretNormalized.includes(normalizedLetter)) {
                 setLives((currentLives) => {
                     const nextLives = Math.max(0, currentLives - 1);
                     if (nextLives === 0) {
                         setFinished(true);
-                        setTimedOut(false);
+                        setTimedOut(false); // Derrota por perda de vidas, não por tempo
                     }
                     return nextLives;
                 });
@@ -169,7 +187,7 @@ export default function useHangmanGameLogic({
         [won, guessed, finished, noWords, secretNormalized],
     );
 
-    // ─── API pública do hook ─────────────────────────────────────────
+    // ─── RETORNO DA API PÚBLICA DO HOOK ──────────────────────────────────────────
     return {
         // Constantes
         alphabet: ALPHABET,

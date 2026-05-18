@@ -1,23 +1,40 @@
+/* ==========================================================================
+   ESTILOS GLOBAIS DA APLICAÇÃO (style.css)
+   Contém as variáveis de cores (CSS Variables), reset básico de margens,
+   fontes, classes utilitárias de botões, painéis e tabelas de ranking.
+   ========================================================================== */
+
+/* Definição das variáveis de cores na raiz do documento (:root) */
 :root {
+    /* Fundo principal da aplicação com gradiente escuro vibrante */
     --bg: linear-gradient(180deg, #00112A 75.48%, var(--Color-5, #F60085) 100%);
+    /* Cor de fundo dos cartões e painéis (azul escuro/cinza) */
     --card: #111827;
+    /* Cor para textos secundários e legendas */
     --muted: #94a3b8;
+    /* Cores de destaque (azul ciano) para botões e ações principais */
     --accent: #38bdf8;
     --accent-strong: #0ea5e9;
+    /* Cor do texto principal (branco/cinza claro) */
     --text: #e2e8f0;
+    /* Cores de status (sucesso e aviso) */
     --success: #22c55e;
     --warning: #f97316;
+    /* Família de fontes padrão do sistema */
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
+/* Otimização de interação para dispositivos móveis (evita zoom indesejado em toques rápidos) */
 html {
     touch-action: manipulation;
 }
 
+/* Reset do modelo de caixa para garantir que padding e border não aumentem a largura total */
 * {
     box-sizing: border-box;
 }
 
+/* Configuração do corpo da página (body) */
 body {
     margin: 0;
     background: var(--bg);
@@ -25,17 +42,20 @@ body {
     min-height: 100vh;
 }
 
+/* Contêiner flexível para caixas de resultado e feedback */
 .result-box {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
+/* Contêiner raiz do React */
 #root {
     background: var(--bg);
     min-height: 100vh;
 }
 
+/* Estrutura principal da aplicação (casco/shell) limitando a largura em telas grandes */
 .app-shell {
     max-width: 1200px;
     margin: 0 auto;
@@ -45,6 +65,7 @@ body {
     gap: 20px;
 }
 
+/* Barra superior de navegação e cabeçalho */
 .topbar {
     display: flex;
     align-items: center;
@@ -52,6 +73,7 @@ body {
     gap: 12px;
 }
 
+/* Estilo de legenda superior (eyebrow) em maiúsculas e espaçada */
 .eyebrow {
     margin: 0;
     color: var(--muted);
@@ -60,18 +82,17 @@ body {
     font-size: 12px;
 }
 
-h1,
-h2,
-h3,
-h4,
-p {
+/* Reset de margem nativa para cabeçalhos e parágrafos */
+h1, h2, h3, h4, p {
     margin: 0;
 }
 
+/* Classe utilitária para texto com cor secundária */
 .muted {
     color: var(--muted);
 }
 
+/* Estilização padrão de todos os botões da aplicação */
 button {
     border: none;
     border-radius: 12px;
@@ -85,26 +106,31 @@ button {
     cursor: pointer;
 }
 
+/* Efeito tátil (feedback de clique) ao pressionar o botão */
 button:active {
     transform: scale(0.98);
 }
 
+/* Estado desativado para botões (bloqueio de interação) */
 button:disabled {
     opacity: 0.4;
     cursor: not-allowed;
 }
 
+/* Botão com estilo primário (gradiente azul ciano vibrante) */
 .primary {
     background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     color: #0b172a;
 }
 
+/* Botão fantasma (fundo transparente com borda discreta) */
 .ghost {
     background: transparent;
     color: var(--text);
     border: 1px solid #1f2937;
 }
 
+/* Painel padrão para envolver formulários, jogos e seções */
 .panel {
     background: var(--card);
     border: 1px solid #1f2937;
@@ -115,6 +141,7 @@ button:disabled {
     gap: 12px;
 }
 
+/* Cabeçalho do painel alinhando título e ações/pílulas */
 .panel-head {
     display: flex;
     justify-content: space-between;
@@ -123,6 +150,7 @@ button:disabled {
     flex-wrap: wrap;
 }
 
+/* Pílula informativa (indicadores de tempo, pontos, status) */
 .pill {
     padding: 8px 12px;
     border-radius: 999px;
@@ -131,22 +159,26 @@ button:disabled {
     font-size: 14px;
 }
 
+/* Pílula com destaque de sucesso (verde) */
 .pill.success {
     background: var(--success);
     color: #0b172a;
 }
 
+/* Pílula com destaque de aviso (laranja) */
 .pill.warning {
     background: var(--warning);
     color: #0b172a;
 }
 
+/* Contêiner da área de jogo ativa */
 .game-area {
     display: grid;
     gap: 12px;
     pointer-events: auto;
 }
 
+/* Campos de entrada de texto (inputs de formulário) */
 .input {
     padding: 14px 12px;
     border-radius: 12px;
@@ -157,6 +189,7 @@ button:disabled {
     min-height: 60px;
 }
 
+/* Mini tabela de ranking exibida nos painéis ou menu */
 .mini-ranking {
     margin-top: 8px;
     padding: 12px;
@@ -168,6 +201,7 @@ button:disabled {
     gap: 8px;
 }
 
+/* Linha individual do mini ranking organizando Nome, Telefone e Pontos */
 .mini-row {
     display: grid;
     grid-template-columns: 1fr 90px 60px;
@@ -179,6 +213,7 @@ button:disabled {
     gap: 10px;
 }
 
+/* Alinhamento à direita para números (telefone e pontos) com espaçamento tabular */
 .mini-row span:nth-child(2),
 .mini-row span:nth-child(3) {
     text-align: right;
@@ -186,12 +221,16 @@ button:disabled {
     font-variant-numeric: tabular-nums;
 }
 
+/* Destaque especial para o primeiro colocado (topo do ranking) */
 .mini-row:first-of-type {
     background: rgba(56, 189, 248, 0.12);
     color: #0b172a;
     font-weight: 700;
 }
 
+/* ==========================================================================
+   RESPONSIVIDADE GLOBAL (Telas menores que 768px)
+   ========================================================================== */
 @media (max-width: 768px) {
     .app-shell {
         padding: 16px;

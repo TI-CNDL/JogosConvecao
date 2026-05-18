@@ -23,6 +23,10 @@ import {
   getPlayer,
 } from "./lib/appDatabase.js";
 
+/**
+ * Lista estática de minijogos disponíveis no sistema.
+ * Contém o identificador único, título exibido e descrição curta para o MenuGrid.
+ */
 const games = [
   { id: "memory", title: "Jogo da memória", description: "Ache os pares." },
   { id: "wordsearch", title: "Caça-palavras", description: "Encontre todos." },
@@ -34,6 +38,10 @@ const games = [
   { id: "whac", title: "Omni-Catch", description: "Acerte os alvos rápido!" },
 ];
 
+/**
+ * Estrutura padrão inicial de dados para os jogos (palavras, perguntas, rounds).
+ * Serve como fallback caso o banco de dados inicial esteja vazio.
+ */
 const defaultGameData = {
   memorySymbols: [],
   labirintoWords: [],
@@ -43,22 +51,20 @@ const defaultGameData = {
   wordSearchWords: [],
 };
 
+// Valores padrão de fallback para configurações caso não estejam definidos no banco
 const defaultTimeLimits = {};
-
 const defaultPairs = { memory: 6 };
-
 const defaultGridSizes = { whac: 12, wordsearch: 10, labirinto: 8 };
-
 const defaultQuizCounts = { quiz: 5 };
-
 const defaultSoletraWordLimits = { soletra: 3 };
-
 const defaultCatchInitialFallTimes = { catch: 10 };
-
 const defaultWordSearchWordLimits = { wordsearch: 5 };
 const defaultHangmanWordLengths = { hangman: 5 };
 const defaultLabirintoWordLengths = { labirinto: 5 };
 
+/**
+ * Funções utilitárias para normalização e formatação de números de telefone (Padrão DDD + 9 dígitos).
+ */
 const normalizePhone = (value) => (value || "").replace(/\D/g, "");
 const onlyDigits = (value) => (value || "").replace(/\D/g, "").slice(0, 11);
 const formatPhoneDigits = (digits) => {
@@ -69,29 +75,52 @@ const formatPhoneDigits = (digits) => {
   if (len <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 };
+
+/**
+ * Calcula a pontuação percentual com base nos acertos parciais.
+ */
 const calcularPontos = (parcial, total) => {
   if (!total || total <= 0) return 0;
   return Math.floor((Math.max(0, parcial) / total) * 100);
 };
 
+/**
+ * COMPONENTE ORQUESTRADOR PRINCIPAL DA APLICAÇÃO (App)
+ * Gerencia o estado global de navegação (telas), jogador ativo, configurações de cada minijogo,
+ * sincronização com a API REST do backend e persistência de sessão no localStorage.
+ */
 export function App() {
+  // Inicializa o banco de dados semente (vazio) como base
   const [initialDatabase] = useState(() => getSeedDatabase());
+  
+  // Estado da tela atual ('menu', 'identify', 'play', 'admin') com persistência no localStorage
   const [screen, setScreen] = useState(() => {
     const saved = localStorage.getItem("app_screen");
     return saved || (initialDatabase.session.screen ?? "menu");
   });
+  
+  // Identificador do jogo selecionado atualmente
   const [selectedGame, setSelectedGame] = useState(() => {
     const saved = localStorage.getItem("app_selectedGame");
     return saved || (initialDatabase.session.selectedGame ?? null);
   });
+  
+  // Dados do jogador ativo (Nome e Telefone)
   const [name, setName] = useState(initialDatabase.player.name ?? "");
   const [phone, setPhone] = useState(initialDatabase.player.phone ?? "");
+  
+  // Dados de conteúdo dos jogos (palavras, perguntas, símbolos)
   const [gameData, setGameData] = useState({
     ...defaultGameData,
     ...(initialDatabase.gameData ?? {}),
   });
+  
+  // Lista do ranking geral
   const [ranking, setRanking] = useState(initialDatabase.ranking ?? []);
+  // Cache de leads/jogadores conhecidos mapeados por telefone
   const [leadsByPhone, setLeadsByPhone] = useState(initialDatabase.leads ?? {});
+  
+  // Estados de configurações individuais por minijogo (Tempo, Pares, Grid, Limites)
   const [timeLimits, setTimeLimits] = useState({
     ...defaultTimeLimits,
     ...(initialDatabase.settings.timeLimits ?? {}),
@@ -128,14 +157,20 @@ export function App() {
     ...defaultLabirintoWordLengths,
     ...(initialDatabase.settings.labirintoWordLengths ?? {}),
   });
+  
+  // Flags de controle de requisição e hidratação
   const [isRemoteMode, setIsRemoteMode] = useState(false);
   const [isSavingScore, setIsSavingScore] = useState(false);
   const [isStartingGame, setIsStartingGame] = useState(false);
   const [isDatabaseHydrated, setIsDatabaseHydrated] = useState(false);
   const [gameSessionKey, setGameSessionKey] = useState(0);
+  
+  // Referências para capturar e congelar os dados da sessão no momento do início do jogo
   const lastSessionPhoneRef = useRef("");
   const lastSessionNameRef = useRef("");
   const didInitialHydrate = useRef(false);
+  
+  // Efeito de inicialização: busca as configurações e ranking do servidor ao abrir o app
   useEffect(() => {
     let cancelled = false;
     let retryTimer = 0;
@@ -335,6 +370,7 @@ export function App() {
     preloadQuizData();
     preloadSoletraData();
   }, [isDatabaseHydrated]);
+  // Efeito executado ao selecionar um jogo: busca o conteúdo específico (palavras/perguntas) da API
   useEffect(() => {
     if (!selectedGame || !isDatabaseHydrated) return;
 
@@ -345,7 +381,7 @@ export function App() {
 
         const { words = [], quiz = [], rounds = [] } = content;
 
-        // Map game code to our state keys
+        // Mapeia o código do jogo para a respectiva chave de estado no gameData
         const dataMap = {
           memory: { key: "memorySymbols", data: words },
           wordsearch: {
@@ -374,12 +410,14 @@ export function App() {
 
   const normalizedPhone = normalizePhone(phone);
 
-  // Busca o nome do jogador no backend automaticamente ao digitar o telefone
+  /**
+   * Efeito de busca automática de jogador: ao digitar um telefone completo (11 dígitos),
+   * consulta a API para verificar se o jogador já existe e preenche seu nome automaticamente.
+   */
   useEffect(() => {
     if (!isRemoteMode || normalizedPhone.length < 11) return;
 
     let active = true;
-    // Send masked phone to identify endpoint (backend expects masked format)
     const masked = formatPhoneDigits(normalizedPhone);
     getPlayer(masked)
       .then((player) => {
@@ -387,7 +425,6 @@ export function App() {
         if (player && player.name) {
           setLeadsByPhone((prev) => ({
             ...prev,
-            // keep lookup key as normalized digits
             [normalizedPhone]: { name: player.name, phone: masked },
           }));
           setName((currentName) => {
@@ -522,12 +559,18 @@ export function App() {
 
   // bulk save desativado pois o backend é a fonte da verdade
 
+  // ==========================================================================
+  // MANIPULADORES DE NAVEGAÇÃO E CONFIGURAÇÃO DE JOGOS
+  // ==========================================================================
+
+  // Retorna à tela de identificação/cadastro limpando os dados atuais
   const goCadastro = () => {
     setPhone("");
     setName("");
     setScreen("identify");
   };
 
+  // Retorna ao menu principal com confirmação prévia caso um jogo esteja em andamento
   const goMainMenu = () => {
     const confirmed = window.confirm(
       "Deseja realmente voltar ao menu principal? O jogo atual será encerrado.",
@@ -537,11 +580,13 @@ export function App() {
     setSelectedGame(null);
   };
 
+  // Abre o painel de administração (AdminHub)
   const openAdminHub = () => {
     setSelectedGame(null);
     setScreen("admin");
   };
 
+  // Seleciona um jogo no menu e avança para a tela de identificação do jogador
   const handleSelectGame = (gameId) => {
     setSelectedGame(gameId);
     setPhone("");
@@ -549,14 +594,17 @@ export function App() {
     setScreen("identify");
   };
 
+  // Atualiza o tempo limite configurado para um jogo específico
   const handleTimeLimitChange = (gameId, valueSeconds) => {
     setTimeLimits((prev) => ({ ...prev, [gameId]: valueSeconds }));
   };
 
+  // Atualiza o número de pares configurado para o Jogo da Memória
   const handlePairsChange = (gameId, valuePairs) => {
     setPairsLimits((prev) => ({ ...prev, [gameId]: valuePairs }));
   };
 
+  // Atualiza o tamanho do tabuleiro (gridSize) garantindo valores seguros para o Labirinto (8 ou 10)
   const handleGridSizeChange = (gameId, valueSize) => {
     if (gameId === "labirinto") {
       const allowedSizes = [8, 10];
@@ -568,26 +616,32 @@ export function App() {
     setGridSizes((prev) => ({ ...prev, [gameId]: valueSize }));
   };
 
+  // Atualiza o limite de perguntas do Quiz
   const handleQuizLimitChange = (gameId, valueLimit) => {
     setQuizQuestionLimits((prev) => ({ ...prev, [gameId]: valueLimit }));
   };
 
+  // Atualiza o limite de palavras do Caça-Palavras
   const handleWordSearchWordLimitChange = (gameId, valueLimit) => {
     setWordSearchWordLimits((prev) => ({ ...prev, [gameId]: valueLimit }));
   };
 
+  // Atualiza o comprimento exato das palavras da Forca
   const handleHangmanWordLengthChange = (gameId, value) => {
     setHangmanWordLengths((prev) => ({ ...prev, [gameId]: value }));
   };
 
+  // Atualiza o comprimento exato das palavras do Labirinto
   const handleLabirintoWordLengthChange = (gameId, value) => {
     setLabirintoWordLengths((prev) => ({ ...prev, [gameId]: value }));
   };
 
+  // Atualiza o limite de rodadas/palavras do Soletra
   const handleSoletraWordLimitChange = (gameId, valueLimit) => {
     setSoletraWordLimits((prev) => ({ ...prev, [gameId]: valueLimit }));
   };
 
+  // Atualiza o tempo inicial de queda dos itens na Cesta de Ofertas (CatchGame)
   const handleCatchInitialFallTimeChange = (gameId, valueSeconds) => {
     const safeValue = Number.isFinite(valueSeconds)
       ? Math.min(30, Math.max(3, valueSeconds))
@@ -702,24 +756,31 @@ export function App() {
     }
   }, [soletraWordBounds, soletraWordLimits.soletra]);
 
+  /**
+   * GERENCIADOR DE PONTUAÇÃO E FIM DE JOGO (handleScore)
+   * Recebe os pontos e tempo restante de qualquer minijogo concluído, calcula bônus de tempo,
+   * atualiza o ranking local otimistamente e envia os dados para persistência na API REST do backend.
+   */
   const handleScore = async ({
     points = 0,
     remainingSeconds = 0,
     timedOut = false,
   }) => {
     const gameId = selectedGame;
-    // Use the phone/name captured at the moment the session started (masked)
+    // Utiliza o telefone e nome congelados no início da sessão para evitar que edições posteriores no input afitem o placar
     const phoneKey =
       lastSessionPhoneRef.current || formatPhoneDigits(normalizedPhone);
     const playerName =
       lastSessionNameRef.current || (isKnownPhone ? knownLead.name : name);
     if (!phoneKey || !playerName || !gameId) return;
 
+    // Calcula o bônus somando os segundos restantes (se não tiver esgotado o tempo)
     const timeBonus = timedOut
       ? 0
       : Math.max(0, Number(remainingSeconds || 0)) * 1;
     const totalPoints = Number(points || 0) + timeBonus;
 
+    // Atualização otimista do ranking local
     const updateLocalRanking = () => {
       setRanking((prev) => {
         const current = prev.find((row) => row.phone === phoneKey);
@@ -738,7 +799,7 @@ export function App() {
         const withoutCurrent = prev.filter((row) => row.phone !== phoneKey);
         const newRanking = sortRanking([...withoutCurrent, nextEntry]);
 
-        // Plano B: Salvar fallback local
+        // Plano B: Salva no localStorage como fallback caso o backend falhe
         try {
           localStorage.setItem(
             "jogos_fallback_ranking",
@@ -754,6 +815,7 @@ export function App() {
 
     const optimisticPoints = updateLocalRanking();
 
+    // Sincronização com o backend em modo remoto
     if (isRemoteMode) {
       setIsSavingScore(true);
       try {
@@ -790,10 +852,16 @@ export function App() {
     return optimisticPoints;
   };
 
+  // Reinicia a partida atual incrementando a chave de sessão (força remontagem do componente do jogo)
   const handlePlayAgain = () => {
     setGameSessionKey((currentKey) => currentKey + 1);
   };
 
+  /**
+   * INÍCIO DE PARTIDA (startGame)
+   * Valida os dados do jogador, registra na API caso seja um novo jogador,
+   * congela as referências de nome/telefone para a sessão e avança para a tela de jogo ('play').
+   */
   const startGame = async () => {
     if (!canPlay || !selectedGame) return;
     const phoneDigits = normalizePhone(phone);
@@ -831,7 +899,7 @@ export function App() {
       setName(knownLead.name);
     }
 
-    // Capture phone/name (masked) for this session to avoid later edits affecting saved score
+    // Congela o telefone e nome da sessão atual para garantir consistência no envio do placar
     lastSessionPhoneRef.current = phoneMasked;
     lastSessionNameRef.current = finalName;
 

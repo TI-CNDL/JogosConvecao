@@ -1,24 +1,38 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
+/**
+ * Tipos de itens disponíveis no jogo Cesta de Ofertas.
+ */
 const ITEM_TYPES = {
-    GOOD: "good",
-    BAD: "bad",
-    SPECIAL: "special",
+    GOOD: "good",       // Itens positivos (caixas, celulares, moedas)
+    BAD: "bad",         // Itens negativos/perigosos (bombas, lixeiras)
+    SPECIAL: "special", // Itens especiais de alto valor (estrelas douradas)
 };
 
+// Tempo base de referência para o cálculo proporcional da quantidade de itens
 const BASE_TIME_SECONDS = 30;
+
+// Quantidade padrão de itens gerados para uma partida de 30 segundos
 const BASE_COUNTS = {
     [ITEM_TYPES.GOOD]: 41,
     [ITEM_TYPES.BAD]: 54,
     [ITEM_TYPES.SPECIAL]: 9,
 };
+
+// Total base de itens somados
 const BASE_TOTAL =
     BASE_COUNTS[ITEM_TYPES.GOOD] +
     BASE_COUNTS[ITEM_TYPES.BAD] +
     BASE_COUNTS[ITEM_TYPES.SPECIAL];
 
+/**
+ * Retorna um número de ponto flutuante aleatório entre min e max.
+ */
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 
+/**
+ * Algoritmo Fisher-Yates para embaralhar o plano de surgimento de itens.
+ */
 const fisherYatesShuffle = (arr) => {
     const copy = [...arr];
     for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -28,6 +42,14 @@ const fisherYatesShuffle = (arr) => {
     return copy;
 };
 
+/**
+ * Constrói o plano de surgimento (spawn plan) de itens para a partida.
+ * Calcula a quantidade proporcional de itens bons, ruins e especiais com base no tempo limite da partida,
+ * distribui os restos fracionários e embaralha a lista resultante.
+ * 
+ * @param {number} timeLimitSeconds - Tempo total da partida em segundos.
+ * @returns {string[]} Array embaralhado contendo a sequência exata de tipos de itens a serem gerados.
+ */
 const buildSpawnPlan = (timeLimitSeconds) => {
     const scale = Math.max(0, timeLimitSeconds) / BASE_TIME_SECONDS;
     const targetTotal = Math.max(1, Math.round(BASE_TOTAL * scale));
@@ -79,6 +101,15 @@ const buildSpawnPlan = (timeLimitSeconds) => {
     return fisherYatesShuffle(plan);
 };
 
+/**
+ * Instancia um novo item cadente com posição X aleatória, velocidade calculada e ícone correspondente.
+ * 
+ * @param {number} width - Largura atual do canvas em pixels.
+ * @param {number} speedFactor - Fator multiplicador de velocidade (aumenta conforme o progresso da partida).
+ * @param {number} baselineVy - Velocidade vertical base calculada a partir da altura da tela.
+ * @param {string} type - Tipo do item (good, bad, special).
+ * @returns {Object} Objeto representando o item cadente com ID único, coordenadas e física.
+ */
 const buildItem = (width, speedFactor, baselineVy, type) => {
     const size = type === ITEM_TYPES.SPECIAL ? 36 : 32;
     const margin = size + 12;
@@ -87,7 +118,7 @@ const buildItem = (width, speedFactor, baselineVy, type) => {
         id: `${Date.now()}-${Math.random()}`,
         type,
         x: randomBetween(margin, Math.max(margin + 1, width - margin)),
-        y: -size,
+        y: -size, // Inicia acima da tela para queda suave
         size,
         vy: randomBetween(0.9, 1.15) * baselineVy * speedFactor,
         icon:
@@ -119,24 +150,24 @@ export default function useCatchGameLogic({
 }) {
     const { timeLimitSeconds = 90, initialFallTimeSeconds = 10 } = settings;
 
-    // Refs para a View conectar o DOM
+    // Referências para conectar os elementos DOM da View (Canvas e Stage)
     const canvasRef = useRef(null);
     const stageRef = useRef(null);
 
-    // Refs mutáveis para o Game Loop (Performance)
-    const rafRef = useRef(0);
-    const prevTsRef = useRef(0);
-    const basketRef = useRef({ x: 240, y: 470, w: 132, h: 34, glow: 0 });
-    const itemsRef = useRef([]);
-    const spawnPlanRef = useRef([]);
-    const spawnedCountRef = useRef(0);
+    // Referências mutáveis para o Game Loop (utilizadas para garantir altíssima performance a 60 FPS sem causar re-renderizações no React)
+    const rafRef = useRef(0);                                             // ID do requestAnimationFrame
+    const prevTsRef = useRef(0);                                          // Timestamp do quadro anterior
+    const basketRef = useRef({ x: 240, y: 470, w: 132, h: 34, glow: 0 }); // Coordenadas e dimensões da cesta
+    const itemsRef = useRef([]);                                          // Lista ativa de itens em queda
+    const spawnPlanRef = useRef([]);                                      // Plano completo de surgimento de itens
+    const spawnedCountRef = useRef(0);                                    // Contador de itens já gerados
 
-    const pointsRef = useRef(0);
-    const remainingRef = useRef(timeLimitSeconds);
-    const timedOutRef = useRef(false);
-    const finishedRef = useRef(false);
+    const pointsRef = useRef(0);                                          // Pontuação atual acumulada em tempo real
+    const remainingRef = useRef(timeLimitSeconds);                        // Tempo restante exato em ponto flutuante
+    const timedOutRef = useRef(false);                                    // Flag de tempo esgotado
+    const finishedRef = useRef(false);                                    // Flag de fim de jogo
 
-    // Estados Reativos (HUD)
+    // Estados Reativos do HUD (Sincronizados periodicamente para atualizar a interface gráfica)
     const [points, setPoints] = useState(0);
     const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
     const [finished, setFinished] = useState(false);
@@ -182,6 +213,11 @@ export default function useCatchGameLogic({
         syncHud();
     }, [timeLimitSeconds, syncHud]);
 
+    /**
+     * ATUALIZAÇÃO DA FÍSICA E LÓGICA DO JOGO (update)
+     * Executada a cada quadro do requestAnimationFrame. Atualiza o tempo, calcula a aceleração progressiva,
+     * gera novos itens conforme o plano de spawn, move os itens cadentes e verifica colisões com a cesta.
+     */
     const update = useCallback(
         (deltaSec, width, height) => {
             // Calcula a velocidade baseline baseada no tempo inicial desejado
@@ -191,6 +227,7 @@ export default function useCatchGameLogic({
 
             remainingRef.current = Math.max(0, remainingRef.current - deltaSec);
 
+            // Calcula o fator de aceleração: os itens caem até 3.1x mais rápido no final da partida
             const elapsed = timeLimitSeconds - remainingRef.current;
             const progress = Math.min(
                 1,
@@ -203,6 +240,7 @@ export default function useCatchGameLogic({
                 Math.floor((elapsed / Math.max(1, timeLimitSeconds)) * planLength),
             );
 
+            // Gera novos itens se a cota esperada para o tempo atual ainda não foi atingida
             while (spawnedCountRef.current < expectedSpawned) {
                 const type = spawnPlanRef.current[spawnedCountRef.current];
                 itemsRef.current.push(buildItem(width, speedFactor, baselineVy, type));
@@ -213,6 +251,7 @@ export default function useCatchGameLogic({
             basket.glow = Math.max(0, basket.glow - deltaSec * 2.8);
 
             const nextItems = [];
+            // Percorre os itens em queda atualizando sua posição Y e checando colisões
             for (const item of itemsRef.current) {
                 item.y += item.vy * deltaSec;
 
@@ -223,17 +262,19 @@ export default function useCatchGameLogic({
                     item.x >= basket.x - basket.w / 2 &&
                     item.x <= basket.x + basket.w / 2;
 
+                // Colisão detectada com a cesta
                 if (withinY && withinX) {
                     basket.glow = 1;
 
                     if (item.type === ITEM_TYPES.BAD) {
-                        pointsRef.current -= 10;
+                        pointsRef.current -= 10;  // Penalidade por item ruim
                     } else if (item.type === ITEM_TYPES.SPECIAL) {
-                        pointsRef.current += 50;
+                        pointsRef.current += 50;  // Bônus por item especial
                     } else {
-                        pointsRef.current += 10;
+                        pointsRef.current += 10;  // Pontos por item bom
                     }
                 } else if (item.y - item.size / 2 > height) {
+                    // Item especial perdido no fundo da tela gera penalidade
                     if (item.type === ITEM_TYPES.SPECIAL) {
                         pointsRef.current -= 50;
                     }
@@ -244,6 +285,7 @@ export default function useCatchGameLogic({
 
             itemsRef.current = nextItems;
 
+            // Verifica se o tempo se esgotou
             if (remainingRef.current <= 0) {
                 timedOutRef.current = true;
                 finishedRef.current = true;
@@ -255,6 +297,11 @@ export default function useCatchGameLogic({
         [timeLimitSeconds, initialFallTimeSeconds, syncHud],
     );
 
+    /**
+     * RENDERIZAÇÃO GRÁFICA NO CANVAS (draw)
+     * Limpa o quadro anterior e desenha todos os itens cadentes com suas respectivas cores de fundo,
+     * bordas e ícones emoji. Em seguida, desenha a cesta do jogador com efeito de brilho (glow) ativo ao coletar itens.
+     */
     const draw = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -269,6 +316,7 @@ export default function useCatchGameLogic({
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, width, height);
 
+        // Desenha os itens cadentes
         for (const item of itemsRef.current) {
             const isBad = item.type === ITEM_TYPES.BAD;
             const isSpecial = item.type === ITEM_TYPES.SPECIAL;
@@ -302,6 +350,7 @@ export default function useCatchGameLogic({
             ctx.fillText(item.icon, item.x, item.y + 1);
         }
 
+        // Desenha a cesta do jogador com efeitos visuais e propulsores laterais
         const basket = basketRef.current;
         ctx.save();
         ctx.shadowBlur = basket.glow > 0 ? 24 : 0;

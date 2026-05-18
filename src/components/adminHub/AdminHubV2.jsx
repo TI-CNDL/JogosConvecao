@@ -9,6 +9,9 @@ import {
 } from "../../lib/appDatabase";
 import "./adminHubV2.style.css";
 
+/**
+ * Ordem de exibição dos recursos na interface administrativa.
+ */
 const resourceOrder = [
   "players",
   "games",
@@ -17,6 +20,9 @@ const resourceOrder = [
   "soletraRounds",
 ];
 
+/**
+ * Mapeamento de chaves de recursos para rótulos legíveis em português.
+ */
 const resourceLabels = {
   players: "Usuários",
   games: "Jogos",
@@ -28,6 +34,10 @@ const resourceLabels = {
   gameSettings: "Configurações",
 };
 
+/**
+ * Definições de esquemas (schemas) para cada entidade do banco de dados.
+ * Configura os campos do formulário de criação/edição, placeholders de busca e colunas da tabela.
+ */
 const resourceSchemas = {
   players: {
     title: "Usuários",
@@ -188,12 +198,18 @@ const resourceSchemas = {
   },
 };
 
+/**
+ * Formata strings de data ISO para o padrão brasileiro (pt-BR).
+ */
 const formatDate = (value) => {
   if (!value) return "-";
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleString("pt-BR");
 };
 
+/**
+ * Converte valores arbitrários (objetos, arrays, strings) em texto legível para exibição.
+ */
 const stringify = (value) => {
   if (value === null || value === undefined) return "-";
   if (typeof value === "string") return value;
@@ -204,17 +220,26 @@ const stringify = (value) => {
   }
 };
 
+/**
+ * Normaliza textos para busca (lowercase e sem espaços nas extremidades).
+ */
 const normalize = (value) =>
   String(value ?? "")
     .trim()
     .toLowerCase();
 
+/**
+ * Converte strings numéricas em números reais ou retorna null se for inválido/vazio.
+ */
 const parseNumberOrNull = (value) => {
   if (value === "" || value === null || value === undefined) return null;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
 };
 
+/**
+ * Obtém e formata o valor inicial de um campo para o rascunho (draft) do formulário.
+ */
 const getDraftValue = (row, key) => {
   const value = row?.[key];
   if (value === null || value === undefined) return "";
@@ -228,6 +253,9 @@ const getDraftValue = (row, key) => {
   return String(value);
 };
 
+/**
+ * Constrói o objeto de rascunho (draft) populando os campos com base no esquema e no registro atual.
+ */
 const buildDraft = (schema, row) => {
   const draft = { ...schema.emptyDraft };
   if (!row) return draft;
@@ -237,6 +265,9 @@ const buildDraft = (schema, row) => {
   return draft;
 };
 
+/**
+ * Serializa os dados do rascunho (draft) de volta para os tipos esperados pela API REST.
+ */
 const serializeDraft = (schema, draft) => {
   const payload = {};
   schema.fields.forEach((field) => {
@@ -306,6 +337,11 @@ const filterRows = (rows, filters) => {
   });
 };
 
+/**
+ * COMPONENTE MODAL DE FORMULÁRIO (AdminFormModal)
+ * Exibe o formulário dinâmico para criação ou edição de registros, renderizando
+ * campos de texto, números, seletores (selects), textareas, JSON e upload de imagens em base64.
+ */
 function AdminFormModal({
   open,
   title,
@@ -520,6 +556,11 @@ function AdminFormModal({
   );
 }
 
+/**
+ * COMPONENTE DE SEÇÃO DE RECURSO PADRÃO (ResourceSection)
+ * Renderiza a tabela de dados, barra de busca local, contagem de itens, barra de seleção em lote
+ * e botões de ação (editar, excluir, novo registro) para entidades genéricas como Usuários e Jogos.
+ */
 function ResourceSection({
   resource,
   records,
@@ -742,6 +783,11 @@ function ResourceSection({
   );
 }
 
+/**
+ * COMPONENTE DE SEÇÃO DE PALAVRAS AGRUPADAS POR JOGO (WordsByGameSection)
+ * Subdivide a exibição da tabela de palavras com base no jogo a que pertencem (Forca, Memória, Caça-Palavras, Labirinto).
+ * Para o Jogo da Memória, exibe o preview das imagens cadastradas.
+ */
 function WordsByGameSection({
   records,
   selection,
@@ -1023,22 +1069,31 @@ function WordsGameTable({
   );
 }
 
+/**
+ * COMPONENTE PRINCIPAL DO PAINEL DE ADMINISTRAÇÃO (AdminHub)
+ * Centraliza o carregamento de todos os registros via API REST, gerencia o estado global dos filtros,
+ * seleções em lote, controle do modal de formulários e acionamento das requisições CRUD.
+ *
+ * @param {Object} props - Propriedades do componente.
+ * @param {Function} props.onBackToMenu - Callback para retornar ao menu principal da aplicação.
+ */
 export default function AdminHub({ onBackToMenu }) {
-  const [records, setRecords] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [filters, setFilters] = useState({});
-  const [selection, setSelection] = useState({});
-  const [modalState, setModalState] = useState({
+  const [records, setRecords] = useState(null);               // Dados de todas as tabelas vindos da API
+  const [loading, setLoading] = useState(true);               // Flag de carregamento inicial
+  const [error, setError] = useState("");                     // Mensagem de erro global
+  const [filters, setFilters] = useState({});                 // Filtros de busca por recurso
+  const [selection, setSelection] = useState({});             // IDs selecionados por recurso (para ações em lote)
+  const [modalState, setModalState] = useState({              // Controle do modal de formulário
     open: false,
     mode: "create",
     resource: null,
     rowId: null,
     draft: {},
   });
-  const [modalError, setModalError] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [modalError, setModalError] = useState("");           // Mensagem de erro do modal
+  const [saving, setSaving] = useState(false);                // Flag de salvamento em andamento
 
+  // Função para carregar e atualizar todos os registros do banco de dados via API
   const loadRecords = async () => {
     // Só mostra loading na primeira carga; refreshes são silenciosos
     if (!records) setLoading(true);

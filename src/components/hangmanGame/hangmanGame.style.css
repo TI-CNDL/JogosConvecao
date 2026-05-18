@@ -1,5 +1,12 @@
-/* ── Variáveis locais do componente ─────────────────────────────── */
+/* ==========================================================================
+   ESTILOS DO JOGO DA FORCA (hangmanGame.style.css)
+   Define as variáveis de layout, estilização da caixa da palavra secreta,
+   grid flexível do teclado virtual e responsividade das teclas.
+   ========================================================================== */
+
+/* ── Variáveis locais de escopo do componente ─────────────────────────────── */
 .hangman-game {
+    /* Cores e bordas herdadas do tema global com valores de fallback */
     --hg-word-bg: var(--card-bg, #0b1220);
     --hg-word-border: var(--card-border, #1f2937);
     --hg-word-font-size: 28px;
@@ -11,7 +18,7 @@
     --hg-result-border: var(--card-border, #1f2937);
 }
 
-/* ── Palavra mascarada ─────────────────────────────────────────── */
+/* ── Estilização da caixa da palavra mascarada ─────────────────────────── */
 .hangman-game .hangman-word {
     font-size: var(--hg-word-font-size);
     letter-spacing: var(--hg-word-spacing);
@@ -23,7 +30,7 @@
     box-sizing: border-box;
 }
 
-/* ── Teclado ───────────────────────────────────────────────────── */
+/* ── Contêiner flexível do teclado virtual ─────────────────────────────── */
 .hangman-game .hangman-keyboard {
     display: flex;
     flex-wrap: wrap;
@@ -32,7 +39,7 @@
     box-sizing: border-box;
 }
 
-/* ── Tecla individual ──────────────────────────────────────────── */
+/* ── Estilização individual das teclas do teclado ──────────────────────── */
 .hangman-game .hangman-key {
     background: var(--hg-key-bg);
     color: var(--hg-key-color);
@@ -40,11 +47,12 @@
     transition: background 0.15s ease, opacity 0.15s ease;
 }
 
+/* Estado desativado para teclas já clicadas ou ao fim da partida */
 .hangman-game .hangman-key:disabled {
     opacity: 0.4;
 }
 
-/* ── Resultado ─────────────────────────────────────────────────── */
+/* ── Caixa de exibição do resultado final (Modal interno) ──────────────── */
 .hangman-game .result-box {
     background: var(--hg-result-bg);
     border: 1px solid var(--hg-result-border);

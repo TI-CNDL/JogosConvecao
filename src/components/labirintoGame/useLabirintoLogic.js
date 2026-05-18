@@ -1,46 +1,104 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { shuffle } from "../../utils/array";
 
+// Tamanho padrão do tabuleiro caso não seja especificado na configuração
 const DEFAULT_GRID_SIZE = 8;
+
+// Distâncias mínimas e máximas (em passos de Manhattan) permitidas entre as letras da palavra
 const MIN_GAP_STEPS = 2;
 const MAX_GAP_STEPS = 6;
 
-// Probabilidade de parede varia com tamanho do grid
+/**
+ * Define a probabilidade de criação de paredes no labirinto com base no tamanho do grid.
+ * Grids menores precisam de menos paredes para evitar bloqueios excessivos.
+ * @param {number} gridSize — O tamanho atual do grid (ex: 8 para 8x8).
+ * @returns {number} A probabilidade (entre 0 e 1) de gerar uma parede em uma aresta livre.
+ */
 const getWallProbability = (gridSize) => {
     if (gridSize <= 5) return 0.05; // Muito poucas paredes em grids pequenos
-    if (gridSize <= 8) return 0.20; // Poucas paredes
-    return 0.28; // Normal para grids grandes
+    if (gridSize <= 8) return 0.15; // Poucas paredes em grids médios
+    return 0.28;                    // Quantidade normal para grids grandes
 };
 
+// Vetor de deltas representando os 4 movimentos possíveis no grid (Cima, Baixo, Esquerda, Direita)
 const DELTAS = [
-    { dr: -1, dc: 0 },
-    { dr: 1, dc: 0 },
-    { dr: 0, dc: -1 },
-    { dr: 0, dc: 1 },
+    { dr: -1, dc: 0 }, // Cima
+    { dr: 1, dc: 0 },  // Baixo
+    { dr: 0, dc: -1 }, // Esquerda
+    { dr: 0, dc: 1 },  // Direita
 ];
 
+/**
+ * Gera uma chave de texto única para identificar uma posição (linha, coluna) no mapa ou set.
+ * @param {number} r — Linha (row).
+ * @param {number} c — Coluna (column).
+ * @returns {string} Chave no formato "r-c".
+ */
 const posKey = (r, c) => `${r}-${c}`;
+
+/**
+ * Gera uma chave de texto única para identificar uma aresta (borda entre duas células adjacentes).
+ * Garante que a ordem das células (a->b ou b->a) produza sempre a mesma chave lexicográfica.
+ * @param {Object} a — Coordenada da primeira célula {r, c}.
+ * @param {Object} b — Coordenada da segunda célula {r, c}.
+ * @returns {string} Chave no formato "r1-c1|r2-c2".
+ */
 const edgeKey = (a, b) => {
     const ka = posKey(a.r, a.c);
     const kb = posKey(b.r, b.c);
     return ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
 };
 
+/**
+ * Verifica se uma coordenada (r, c) está dentro dos limites válidos do tabuleiro.
+ * @param {number} r — Linha.
+ * @param {number} c — Coluna.
+ * @param {number} gridSize — Dimensão do grid.
+ * @returns {boolean} True se estiver dentro do grid.
+ */
 const inBounds = (r, c, gridSize) => r >= 0 && c >= 0 && r < gridSize && c < gridSize;
+
+/**
+ * Verifica se duas células são estritamente adjacentes (vizinhas ortogonais).
+ * @param {Object} a — Primeira célula {r, c}.
+ * @param {Object} b — Segunda célula {r, c}.
+ * @returns {boolean} True se a distância de Manhattan for exatamente 1.
+ */
 const areAdjacent = (a, b) => Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1;
+
+/**
+ * Cria uma cópia imutável de um objeto de coordenada.
+ * @param {Object} pos — Coordenada {r, c}.
+ * @returns {Object} Nova instância {r, c}.
+ */
 const copyPos = (pos) => ({ r: pos.r, c: pos.c });
 
+/**
+ * Verifica se uma determinada célula está localizada em um dos 4 cantos extremos do tabuleiro.
+ * @param {number} r — Linha.
+ * @param {number} c — Coluna.
+ * @param {number} gridSize — Dimensão do grid.
+ * @returns {boolean} True se for um canto.
+ */
 const isCornerCell = (r, c, gridSize) => {
     const last = gridSize - 1;
     return (r === 0 || r === last) && (c === 0 || c === last);
 };
 
-const getGapRange = (gridSize) => {
-    if (gridSize <= 5) return { min: 1, max: 2 };
-    if (gridSize <= 8) return { min: 2, max: 4 };
-    return { min: 3, max: 6 };
-};
+/**
+ * Retorna o intervalo permitido de distância (min e max) entre letras consecutivas.
+ * @param {number} gridSize — Dimensão do grid.
+ * @returns {Object} Objeto contendo {min, max}.
+ */
+const getGapRange = (gridSize) => ({ min: MIN_GAP_STEPS, max: MAX_GAP_STEPS });
 
+/**
+ * Verifica se um caminho (segmento de células) é válido e não atravessa nenhuma parede bloqueada.
+ * @param {Array} path — Array de coordenadas [{r, c}].
+ * @param {Set} blockedEdges — Set contendo as chaves das arestas bloqueadas (paredes).
+ * @param {number} gridSize — Dimensão do grid.
+ * @returns {boolean} True se o caminho for contínuo, dentro dos limites e sem colisões.
+ */
 const isValidSegment = (path, blockedEdges, gridSize) => {
     if (!Array.isArray(path) || path.length < 2) return false;
 
@@ -58,6 +116,12 @@ const isValidSegment = (path, blockedEdges, gridSize) => {
     return true;
 };
 
+/**
+ * Realiza uma verificação rigorosa para garantir que o labirinto gerado tem solução válida.
+ * Confirma se os checkpoints da palavra podem ser alcançados na ordem correta sem ciclos ou bloqueios.
+ * @param {Object} params — Parâmetros de validação (palavra, checkpoints, paredes, caminhos, tamanho do grid).
+ * @returns {boolean} True se o round for perfeitamente completável.
+ */
 const isRoundCompletable = ({ word, checkpoints, blockedEdges, solutionPaths, gridSize }) => {
     if (!word || !Array.isArray(checkpoints) || checkpoints.length !== word.length) {
         return false;
@@ -76,13 +140,14 @@ const isRoundCompletable = ({ word, checkpoints, blockedEdges, solutionPaths, gr
         if (idx === 0) {
             trail.push(...segment);
         } else {
-            // Evita duplicar o checkpoint de junção.
+            // Evita duplicar o checkpoint de junção entre dois segmentos.
             trail.push(...segment.slice(1));
         }
     }
 
     if (trail.length === 0) return false;
 
+    // Confirma que a trilha não passa pela mesma célula duas vezes (sem auto-interseção)
     const visited = new Set();
     for (let i = 0; i < trail.length; i += 1) {
         const key = posKey(trail[i].r, trail[i].c);
@@ -92,7 +157,7 @@ const isRoundCompletable = ({ word, checkpoints, blockedEdges, solutionPaths, gr
         visited.add(key);
     }
 
-    // Confirma que checkpoints aparecem na trilha e na ordem correta.
+    // Confirma que todos os checkpoints aparecem na trilha e exatamente na ordem da palavra
     let checkpointCursor = 0;
     for (let i = 0; i < trail.length && checkpointCursor < checkpoints.length; i += 1) {
         const t = trail[i];
@@ -105,13 +170,22 @@ const isRoundCompletable = ({ word, checkpoints, blockedEdges, solutionPaths, gr
     return checkpointCursor === checkpoints.length;
 };
 
+/**
+ * Gera as coordenadas de destino (checkpoints) para cada letra da palavra no grid.
+ * Realiza múltiplas tentativas para encontrar uma distribuição que respeite as regras de distância.
+ * @param {string} word — A palavra a ser distribuída.
+ * @param {number} gridSize — Dimensão do grid.
+ * @returns {Array|null} Array de coordenadas [{r, c}] ou null se falhar.
+ */
 const generateLetterPath = (word, gridSize) => {
     const maxAttempts = gridSize <= 5 ? 5000 : (gridSize <= 8 ? 2000 : 1000);
+    console.log(`[generateLetterPath] Tentando gerar path para "${word}" (grid ${gridSize})`);
 
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const checkpoints = [];
         const visited = new Set();
 
+        // Escolhe um ponto de partida aleatório para a primeira letra
         const start = {
             r: Math.floor(Math.random() * gridSize),
             c: Math.floor(Math.random() * gridSize),
@@ -122,6 +196,7 @@ const generateLetterPath = (word, gridSize) => {
         let ok = true;
         let current = start;
 
+        // Tenta posicionar as letras subsequentes da palavra
         for (let i = 1; i < word.length; i += 1) {
             const gaps = getGapRange(gridSize);
             const minDistance = gaps.min;
@@ -135,9 +210,10 @@ const generateLetterPath = (word, gridSize) => {
                     const key = posKey(r, c);
                     if (visited.has(key)) continue;
 
-                    // Regra solicitada: letras do meio nao podem ficar nos cantos (apenas para grids maiores).
+                    // Regra de design: letras intermediárias não podem ficar nos cantos (evita caminhos presos)
                     if (gridSize >= 8 && isMiddleLetter && isCornerCell(r, c, gridSize)) continue;
 
+                    // Calcula a distância de Manhattan da posição atual até o candidato
                     const manhattan = Math.abs(candidate.r - current.r) + Math.abs(candidate.c - current.c);
                     if (manhattan >= minDistance && manhattan <= maxDistance) {
                         candidates.push({ ...candidate, manhattan });
@@ -145,11 +221,13 @@ const generateLetterPath = (word, gridSize) => {
                 }
             }
 
+            // Se não houver candidatos válidos, aborta esta tentativa
             if (candidates.length === 0) {
                 ok = false;
                 break;
             }
 
+            // Ordena os candidatos dando preferência para os mais distantes dentro do limite
             candidates.sort((a, b) => b.manhattan - a.manhattan);
             const poolSize = Math.max(1, Math.ceil(candidates.length / 3));
             const next = candidates[Math.floor(Math.random() * poolSize)];
@@ -168,6 +246,17 @@ const generateLetterPath = (word, gridSize) => {
     return null;
 };
 
+/**
+ * Constrói um caminho livre de obstáculos (solução) entre dois checkpoints usando Busca em Largura (BFS).
+ * Evita passar por células proibidas ou outros checkpoints fora de ordem.
+ * @param {Object} start — Coordenada inicial.
+ * @param {Object} target — Coordenada destino.
+ * @param {Set} blockedEdges — Set de arestas bloqueadas.
+ * @param {Set} forbiddenCells — Set de células já utilizadas por caminhos anteriores.
+ * @param {Set} checkpointCells — Set contendo todos os checkpoints da palavra.
+ * @param {number} gridSize — Dimensão do grid.
+ * @returns {Array|null} Array com o caminho de coordenadas ou null se não encontrar rota.
+ */
 const buildPathBetween = (
     start,
     target,
@@ -185,7 +274,7 @@ const buildPathBetween = (
     const seen = new Set([startK]);
     const prev = new Map();
 
-    // Timeout protection: max iterations
+    // Proteção contra loops infinitos (limite máximo de iterações)
     const MAX_ITERATIONS = gridSize * gridSize * 2;
     let iterations = 0;
 
@@ -194,34 +283,39 @@ const buildPathBetween = (
         const current = queue.shift();
         const currentK = posKey(current.r, current.c);
 
+        // Se alcançou o destino, faz o caminho de volta (backtracking) para montar a rota
         if (currentK === targetK) {
-            const path = [];
-            let walk = targetK;
+            const path = [copyPos(target)];
+            let walk = currentK;
             let pathWalkIterations = 0;
 
-            while (walk && pathWalkIterations < MAX_ITERATIONS) {
+            while (walk !== startK && pathWalkIterations < MAX_ITERATIONS) {
                 pathWalkIterations += 1;
                 const [wr, wc] = walk.split("-").map(Number);
                 path.push({ r: wr, c: wc });
-                if (walk === startK) break;
                 walk = prev.get(walk);
+
+                if (!walk) {
+                    path.push(copyPos(start));
+                    break;
+                }
             }
 
-            // Only return if we actually reached start
-            if (path.length > 0 && path[path.length - 1].r === start.r && path[path.length - 1].c === start.c) {
+            if (walk === startK || path[path.length - 1].r === start.r && path[path.length - 1].c === start.c) {
                 return path.reverse();
             }
             return null;
         }
 
+        // Explora os vizinhos nas 4 direções
         for (const d of DELTAS) {
             const next = { r: current.r + d.dr, c: current.c + d.dc };
             if (!inBounds(next.r, next.c, gridSize)) continue;
             const nextK = posKey(next.r, next.c);
             if (seen.has(nextK)) continue;
-            if (blockedEdges.has(edgeKey(current, next))) continue;
-            if (forbiddenCells.has(nextK) && nextK !== targetK) continue;
-            if (checkpointCells.has(nextK) && nextK !== targetK && nextK !== startK) continue;
+            if (blockedEdges.has(edgeKey(current, next))) continue; // Não atravessa paredes
+            if (forbiddenCells.has(nextK) && nextK !== targetK) continue; // Não invade caminhos anteriores
+            if (checkpointCells.has(nextK) && nextK !== targetK && nextK !== startK) continue; // Não fura checkpoints
 
             seen.add(nextK);
             prev.set(nextK, currentK);
@@ -232,7 +326,16 @@ const buildPathBetween = (
     return null;
 };
 
+/**
+ * Constrói as paredes do labirinto (arestas bloqueadas).
+ * Primeiro garante que existe um caminho limpo entre todos os checkpoints da palavra,
+ * e depois espalha paredes aleatórias pelo resto do tabuleiro.
+ * @param {Array} checkpoints — Array de coordenadas dos checkpoints.
+ * @param {number} gridSize — Dimensão do grid.
+ * @returns {Object|null} Objeto contendo { blocked, solutionPaths } ou null se falhar.
+ */
 const buildBlockedEdges = (checkpoints, gridSize) => {
+    console.log(`[buildBlockedEdges] Iniciando para ${checkpoints.length} checkpoints no grid ${gridSize}`);
     const blocked = new Set();
     const solutionEdges = new Set();
 
@@ -240,6 +343,7 @@ const buildBlockedEdges = (checkpoints, gridSize) => {
     const forbiddenCells = new Set();
     const checkpointCells = new Set(checkpoints.map((pos) => posKey(pos.r, pos.c)));
 
+    // 1. Conecta cada par de checkpoints consecutivos para formar a solução garantida
     for (let i = 0; i < checkpoints.length - 1; i += 1) {
         const between = buildPathBetween(
             checkpoints[i],
@@ -260,9 +364,12 @@ const buildBlockedEdges = (checkpoints, gridSize) => {
         }
     }
 
+    // 2. Percorre todas as arestas do grid adicionando paredes aleatórias onde NÃO for caminho de solução
     for (let r = 0; r < gridSize; r += 1) {
         for (let c = 0; c < gridSize; c += 1) {
             const wallProb = getWallProbability(gridSize);
+            
+            // Checa aresta horizontal (direita)
             if (c + 1 < gridSize) {
                 const a = { r, c };
                 const b = { r, c: c + 1 };
@@ -272,6 +379,7 @@ const buildBlockedEdges = (checkpoints, gridSize) => {
                 }
             }
 
+            // Checa aresta vertical (baixo)
             if (r + 1 < gridSize) {
                 const a = { r, c };
                 const b = { r: r + 1, c };
@@ -283,9 +391,16 @@ const buildBlockedEdges = (checkpoints, gridSize) => {
         }
     }
 
+    console.log(`[buildBlockedEdges] ✓ Sucesso! ${blocked.size} paredes criadas`);
     return { blocked, solutionPaths };
 };
 
+/**
+ * Algoritmo de busca de caminho (BFS) utilizado para gerar dicas ao jogador.
+ * Encontra a rota mais curta da posição atual até o próximo checkpoint correto.
+ * @param {Object} params — Posição inicial, destino, paredes, células visitadas e tamanho do grid.
+ * @returns {Array|null} Rota encontrada ou null.
+ */
 const findPath = ({ start, target, blockedEdges, visited, gridSize }) => {
     const startK = posKey(start.r, start.c);
     const targetK = posKey(target.r, target.c);
@@ -331,6 +446,12 @@ const findPath = ({ start, target, blockedEdges, visited, gridSize }) => {
     return null;
 };
 
+/**
+ * Converte a relação entre duas coordenadas adjacentes em um texto de direção em português.
+ * @param {Object} from — Célula de origem.
+ * @param {Object} to — Célula de destino.
+ * @returns {string} "cima", "baixo", "esquerda" ou "direita".
+ */
 const getDirectionName = (from, to) => {
     if (to.r < from.r) return "cima";
     if (to.r > from.r) return "baixo";
@@ -338,23 +459,36 @@ const getDirectionName = (from, to) => {
     return "direita";
 };
 
+/**
+ * Orquestra a geração completa de um round do jogo (escolha da palavra, posicionamento e labirinto).
+ * Possui chamadas recursivas de fallback caso a geração aleatória encontre um beco sem saída.
+ * @param {Array} words — Lista de palavras disponíveis.
+ * @param {number} gridSize — Dimensão do grid.
+ * @param {number} depth — Contador de profundidade da recursão para evitar stack overflow.
+ * @returns {Object|null} Objeto do round completo ou null.
+ */
 const generateRound = (words, gridSize, depth = 0) => {
     const MAX_DEPTH = gridSize <= 5 ? 200 : (gridSize <= 8 ? 100 : 50);
 
     if (!words || words.length === 0) return null;
     if (depth > MAX_DEPTH) return null;
 
+    // Filtra palavras que caibam no tamanho do grid
     const eligibleWords = words.filter((word) => word.length <= gridSize);
     const pool = eligibleWords.length > 0 ? eligibleWords : words;
     const word = pool[Math.floor(Math.random() * pool.length)];
+    
+    // Tenta gerar os checkpoints para a palavra escolhida
     const checkpoints = generateLetterPath(word, gridSize);
     if (!checkpoints) {
+        console.debug(`[LabirintoLogic] Falha em generateLetterPath depth=${depth}`);
         return generateRound(words, gridSize, depth + 1);
     }
 
     const checkpointMap = new Map();
     checkpoints.forEach((p, idx) => checkpointMap.set(posKey(p.r, p.c), idx));
 
+    // Inicializa a matriz do grid com objetos vazios
     const grid = Array.from({ length: gridSize }, (_, r) =>
         Array.from({ length: gridSize }, (_, c) => ({ key: posKey(r, c), letter: "" })),
     );
@@ -363,8 +497,10 @@ const generateRound = (words, gridSize, depth = 0) => {
         grid[p.r][p.c].letter = word[idx];
     });
 
+    // Tenta construir as paredes e caminhos
     const blockedResult = buildBlockedEdges(checkpoints, gridSize);
     if (!blockedResult) {
+        console.debug(`[LabirintoLogic] Falha em buildBlockedEdges depth=${depth}`);
         return generateRound(words, gridSize, depth + 1);
     }
     const { blocked: blockedEdges, solutionPaths } = blockedResult;
@@ -382,19 +518,27 @@ const generateRound = (words, gridSize, depth = 0) => {
         grid,
     };
 
-    if (!isRoundCompletable({
-        word,
-        checkpoints,
-        blockedEdges,
-        solutionPaths,
-        gridSize,
-    })) {
-        return generateRound(words, gridSize, depth + 1);
+    // Validação final de completabilidade para grids maiores
+    if (gridSize >= 8) {
+        if (!isRoundCompletable({
+            word,
+            checkpoints,
+            blockedEdges,
+            solutionPaths,
+            gridSize,
+        })) {
+            console.debug(`[LabirintoLogic] Falha em isRoundCompletable depth=${depth}`);
+            return generateRound(words, gridSize, depth + 1);
+        }
     }
 
+    console.log(`[generateRound] ✓ Round aceito! Palavra: "${word}" depth=${depth}`);
     return candidateRound;
 };
 
+/**
+ * Exibe informações detalhadas de depuração no console caso a geração do labirinto falhe completamente.
+ */
 const debugRoundFailure = ({ source, words, gridSize }) => {
     const safeWords = Array.isArray(words) ? words : [];
     const lengths = safeWords
@@ -411,6 +555,9 @@ const debugRoundFailure = ({ source, words, gridSize }) => {
     });
 };
 
+/**
+ * Wrapper de geração de round que aciona o debug automático em caso de falha.
+ */
 const createRoundWithDebug = ({ words, gridSize, source }) => {
     if (!words || words.length === 0) {
         return null;
@@ -422,6 +569,11 @@ const createRoundWithDebug = ({ words, gridSize, source }) => {
     return round;
 };
 
+/**
+ * Analisa a trilha atual do jogador e determina o progresso alcançado na formação da palavra.
+ * @param {Object} params — Trilha atual, mapa de checkpoints, grid e palavra.
+ * @returns {Object} Objeto contendo { progress, matchedKeys }.
+ */
 const getSequenceStateFromTrail = ({ trail, checkpointMap, grid, word }) => {
     let nextExpectedIndex = 0;
     const matchedKeys = [];
@@ -447,6 +599,10 @@ const getSequenceStateFromTrail = ({ trail, checkpointMap, grid, word }) => {
     };
 };
 
+/**
+ * Custom Hook principal contendo toda a lógica de estado, tempo, validação de regras e geometria do jogo Labirinto.
+ * @param {Object} props — Propriedades e callbacks passadas pelo componente pai.
+ */
 export default function useLabirintoLogic({
     data = {},
     config = {},
@@ -457,6 +613,7 @@ export default function useLabirintoLogic({
     const { words = [] } = data;
     const { timeLimitSeconds = 120, gridSize = DEFAULT_GRID_SIZE } = config;
 
+    // Estado do round atual contendo o grid, palavra e posições
     const [round, setRound] = useState(() => {
         if (words && words.length > 0) {
             return createRoundWithDebug({
@@ -467,19 +624,22 @@ export default function useLabirintoLogic({
         }
         return null;
     });
-    const [progress, setProgress] = useState(-1);
-    const [trail, setTrail] = useState([]);
-    const [trailSet, setTrailSet] = useState(new Set());
-    const [matchedCheckpointKeys, setMatchedCheckpointKeys] = useState([]);
-    const [dragging, setDragging] = useState(false);
-    const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
-    const [finished, setFinished] = useState(false);
-    const [timedOut, setTimedOut] = useState(false);
-    const [reported, setReported] = useState(false);
-    const [hintText, setHintText] = useState("");
-    const boardRef = useRef(null);
-    const [boardSize, setBoardSize] = useState(480);
 
+    // Estados de controle do jogo
+    const [progress, setProgress] = useState(-1);                     // Progresso na palavra (-1 = início)
+    const [trail, setTrail] = useState([]);                           // Array da trilha
+    const [trailSet, setTrailSet] = useState(new Set());              // Set da trilha para busca rápida
+    const [matchedCheckpointKeys, setMatchedCheckpointKeys] = useState([]); // Chaves dos checkpoints alcançados
+    const [dragging, setDragging] = useState(false);                  // Flag indicando se o usuário está arrastando
+    const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);       // Cronômetro regressivo
+    const [finished, setFinished] = useState(false);                  // Flag de fim de jogo
+    const [timedOut, setTimedOut] = useState(false);                  // Flag de fim por tempo esgotado
+    const [reported, setReported] = useState(false);                  // Flag de pontuação já enviada
+    const [hintText, setHintText] = useState("");                     // Texto de dica
+    const boardRef = useRef(null);                                    // Referência DOM do tabuleiro
+    const [boardSize, setBoardSize] = useState(480);                  // Largura do tabuleiro em pixels
+
+    // Extração de propriedades do round atual
     const word = round?.word ?? "";
     const checkpoints = round?.checkpoints ?? [];
     const checkpointMap = round?.checkpointMap ?? new Map();
@@ -489,19 +649,18 @@ export default function useLabirintoLogic({
     const shouldMarkFirstCheckpoint = progress < 0;
     const boardGridSize = Math.max(4, gridSize || DEFAULT_GRID_SIZE);
 
+    // Efeito para monitorar o tamanho real do tabuleiro na tela (responsividade via ResizeObserver)
     useEffect(() => {
         if (!boardRef.current) return undefined;
         const observer = new ResizeObserver((entries) => {
             const width = entries[0]?.contentRect?.width;
-            if (width) {
-                console.debug(`[Labirinto V3] ResizeObserver: width=${width}`);
-                setBoardSize(width);
-            }
+            if (width) setBoardSize(width);
         });
         observer.observe(boardRef.current);
         return () => observer.disconnect();
-    }, [round]);
+    }, []);
 
+    // Função para limpar a tentativa atual e recomeçar do zero
     const resetAttempt = () => {
         setProgress(-1);
         setTrail([]);
@@ -511,6 +670,7 @@ export default function useLabirintoLogic({
         setHintText("");
     };
 
+    // Função para iniciar uma nova partida com outra palavra
     const newGame = () => {
         if (words && words.length > 0) {
             setRound(createRoundWithDebug({
@@ -531,11 +691,13 @@ export default function useLabirintoLogic({
         setHintText("");
     };
 
+    // Reinicia o jogo caso o tempo limite configurado mude
     useEffect(() => {
         newGame();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [timeLimitSeconds]);
 
+    // Atualiza o round caso a lista de palavras ou o tamanho do grid mudem
     useEffect(() => {
         if (words && words.length > 0) {
             setRound(createRoundWithDebug({
@@ -559,6 +721,7 @@ export default function useLabirintoLogic({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [words, boardGridSize]);
 
+    // Cronômetro regressivo (Timer de 1 em 1 segundo)
     useEffect(() => {
         if (finished) return undefined;
         const id = setInterval(() => {
@@ -574,12 +737,14 @@ export default function useLabirintoLogic({
         return () => clearInterval(id);
     }, [finished]);
 
+    // Verifica condição de vitória (se alcançou a última letra da palavra)
     useEffect(() => {
         if (word && progress === word.length - 1 && !finished) {
             setFinished(true);
         }
     }, [progress, word, finished, words, boardGridSize]);
 
+    // Efeito executado ao finalizar a partida para repassar a pontuação ao sistema global
     useEffect(() => {
         if (finished && !reported) {
             const partialPoints = Math.floor((Math.max(0, progress + 1) / (word.length || 1)) * 100);
@@ -603,9 +768,11 @@ export default function useLabirintoLogic({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [finished, reported, onScore, onRoundComplete, onGameOver, progress, word, timeLeft, timedOut]);
 
+    // Lógica central de validação de movimento ao interagir com o tabuleiro
     const attemptMove = (r, c) => {
         if (finished || !round) return;
 
+        // 1. Se a trilha está vazia, o jogador DEVE começar obrigatoriamente pela primeira letra da palavra
         if (trail.length === 0) {
             const key = posKey(r, c);
             const isCheckpoint = checkpointMap.has(key);
@@ -629,6 +796,7 @@ export default function useLabirintoLogic({
         const toKey = posKey(r, c);
         const previous = trail.length > 1 ? trail[trail.length - 2] : null;
 
+        // 2. Permite voltar atrás (desfazer o último passo) se clicar na célula anterior
         if (previous && toKey === posKey(previous.r, previous.c)) {
             const nextTrail = trail.slice(0, -1);
             const nextSet = new Set(nextTrail.map((pos) => posKey(pos.r, pos.c)));
@@ -641,14 +809,16 @@ export default function useLabirintoLogic({
             return;
         }
 
+        // 3. Validações de bloqueio: checa adjacência, colisões com paredes e se já passou pela célula
         if (!areAdjacent(from, to)) return;
         if (blockedEdges.has(edgeKey(from, to))) {
-            return;
+            return; // Bloqueado por uma parede
         }
         if (trailSet.has(toKey)) {
-            return;
+            return; // Célula já visitada na trilha atual
         }
 
+        // 4. Movimento válido: atualiza a trilha e recalcula o progresso
         const nextTrail = [...trail, to];
         const nextSet = new Set(trailSet);
         nextSet.add(toKey);
@@ -661,6 +831,7 @@ export default function useLabirintoLogic({
         setHintText("");
     };
 
+    // Manipuladores de eventos de clique e arraste (Pointer Events)
     const startDrag = (r, c) => {
         setDragging(true);
         attemptMove(r, c);
@@ -677,9 +848,11 @@ export default function useLabirintoLogic({
         attemptMove(r, c);
     };
 
+    // Função para calcular e exibir uma dica de direção ao jogador
     const showHint = () => {
         if (finished) return;
 
+        // Se ainda não começou, indica onde está a primeira letra
         if (trail.length === 0) {
             const start = checkpoints[0];
             setHintText(start ? `Comece na letra ${word[0]} em (${start.r + 1}, ${start.c + 1}).` : "Sem dica disponivel.");
@@ -689,12 +862,14 @@ export default function useLabirintoLogic({
         const nextLetter = word[progress + 1];
         if (!nextLetter || !currentPos) return;
 
+        // Busca candidatos no grid que contenham a próxima letra esperada
         const matchedSet = new Set(matchedCheckpointKeys);
         const candidates = checkpoints.filter((pos) => {
             const key = posKey(pos.r, pos.c);
             return grid[pos.r]?.[pos.c]?.letter === nextLetter && !matchedSet.has(key);
         });
 
+        // Encontra a rota mais curta até o candidato correto
         let bestRoute = null;
         candidates.forEach((target) => {
             const route = findPath({ start: currentPos, target, blockedEdges, visited: trailSet, gridSize: boardGridSize });
@@ -716,18 +891,26 @@ export default function useLabirintoLogic({
     };
 
     const hasRound = Boolean(round && grid.length > 0);
-    const cellSize = boardSize / boardGridSize;
-    if (hasRound) {
-        console.debug(`[Labirinto V3] alignment debug: boardSize=${boardSize}, cellSize=${cellSize}, grid=${boardGridSize}`);
-    }
 
+    // Cálculo do padding dinâmico do tabuleiro para garantir alinhamento perfeito dos overlays
+    let boardPadding = 16; // Padrão: 8px de cada lado (8*2)
+    if (boardRef.current) {
+        const computed = window.getComputedStyle(boardRef.current);
+        const paddingValue = parseFloat(computed.padding);
+        boardPadding = paddingValue * 2;
+    }
+    const effectiveBoardSize = Math.max(boardSize - boardPadding, 100);
+    const cellSize = effectiveBoardSize / boardGridSize; // Tamanho exato de cada célula em pixels
+
+    // Cálculo memoizado das coordenadas absolutas de cada parede (Overlay de Paredes)
     const wallSegments = useMemo(() => {
         if (!round) return [];
         const segments = [];
-        const t = Math.max(6, cellSize * 0.12);
+        const t = Math.max(6, cellSize * 0.12); // Espessura da parede proporcional à célula
 
         for (let r = 0; r < boardGridSize; r += 1) {
             for (let c = 0; c < boardGridSize; c += 1) {
+                // Parede vertical (à direita da célula)
                 if (c + 1 < boardGridSize) {
                     const a = { r, c };
                     const b = { r, c: c + 1 };
@@ -736,6 +919,7 @@ export default function useLabirintoLogic({
                     }
                 }
 
+                // Parede horizontal (abaixo da célula)
                 if (r + 1 < boardGridSize) {
                     const a = { r, c };
                     const b = { r: r + 1, c };
@@ -749,11 +933,12 @@ export default function useLabirintoLogic({
         return segments;
     }, [round, blockedEdges, cellSize, boardGridSize]);
 
+    // Cálculo memoizado das coordenadas absolutas das linhas da trilha (Overlay de Rastro)
     const trailSegments = useMemo(() => {
         const segs = [];
         if (trail.length === 0) return segs;
 
-        const thickness = Math.max(10, cellSize * 0.24);
+        const thickness = Math.max(10, cellSize * 0.24); // Espessura da linha do rastro
 
         for (let i = 0; i < trail.length - 1; i += 1) {
             const a = trail[i];
@@ -761,12 +946,14 @@ export default function useLabirintoLogic({
 
             const x1 = a.c * cellSize + cellSize / 2;
             const y1 = a.r * cellSize + cellSize / 2;
-            const x2 = b.c * cellSize + cellSize / 2;
+            const x2 = b.c * cellSize + copyPos(b).c ? b.c * cellSize + cellSize / 2 : b.c * cellSize + cellSize / 2;
             const y2 = b.r * cellSize + cellSize / 2;
 
             if (a.r === b.r) {
+                // Segmento horizontal
                 segs.push({ key: `th-${i}`, x: Math.min(x1, x2), y: y1 - thickness / 2, width: Math.abs(x2 - x1), height: thickness });
             } else {
+                // Segmento vertical
                 segs.push({ key: `tv-${i}`, x: x1 - thickness / 2, y: Math.min(y1, y2), width: thickness, height: Math.abs(y2 - y1) });
             }
         }
@@ -774,10 +961,12 @@ export default function useLabirintoLogic({
         return segs;
     }, [trail, cellSize]);
 
+    // Lista memoizada das letras já coletadas na trilha atual
     const collectedLetters = useMemo(() => trail.map((pos) => grid[pos.r]?.[pos.c]?.letter ?? "").filter(Boolean), [trail, grid]);
 
+    // Retorna todo o estado e ações necessárias para o componente visual
     return {
-        // state
+        // Estado
         round,
         word,
         grid,
@@ -802,7 +991,7 @@ export default function useLabirintoLogic({
         collectedLetters,
         wallSegments,
         trailSegments,
-        // actions
+        // Ações
         startDrag,
         dragOver,
         endDrag,

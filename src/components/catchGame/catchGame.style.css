@@ -1,5 +1,12 @@
-/* ── Variáveis locais do componente ─────────────────────────────── */
+/* ==========================================================================
+   ESTILOS DA CESTA DE OFERTAS (catchGame.style.css)
+   Define as variáveis de tema, estilização da área interativa do Canvas (Stage)
+   com grade de fundo futurista, destaque de instruções e painel de resultados.
+   ========================================================================== */
+
+/* ── Variáveis locais de escopo do componente ─────────────────────────────── */
 .catch-game {
+    /* Cores e bordas herdadas do tema global com valores de fallback */
     --cg-bg: var(--card-bg, #000);
     --cg-border: var(--card-border, #1f2937);
     --cg-stage-border: var(--card-border, #1f2937);
@@ -15,7 +22,7 @@
     padding: 12px;
 }
 
-/* ── Área do Jogo (Stage) ──────────────────────────────────────── */
+/* ── Área interativa do Jogo (Stage contêiner do Canvas) ───────────────── */
 .catch-game .catch-stage {
     position: relative;
     width: 100%;
@@ -23,8 +30,9 @@
     border-radius: 12px;
     border: 1px solid var(--cg-stage-border);
     overflow: hidden;
-    touch-action: none;
+    touch-action: none; /* Desativa comportamentos de rolagem nativa no mobile ao arrastar a cesta */
     user-select: none;
+    /* Fundo com padrão de grade futurista (Cyberpunk grid) */
     background:
         linear-gradient(rgba(0, 0, 0, 0.92), rgba(0, 0, 0, 0.92)),
         linear-gradient(90deg, rgba(246, 0, 133, 0.11) 1px, transparent 1px),
@@ -32,24 +40,26 @@
     background-size: 100% 100%, 36px 36px, 36px 36px;
 }
 
+/* O elemento <canvas> ocupa 100% do espaço do seu contêiner */
 .catch-game .catch-canvas {
     width: 100%;
     height: 100%;
     display: block;
 }
 
-/* ── Instruções ────────────────────────────────────────────────── */
+/* ── Área de instruções textuais ───────────────────────────────────────── */
 .catch-game .catch-instructions {
     margin-top: 10px;
     color: var(--cg-instruction-color);
     font-size: 14px;
 }
 
+/* Destaque visual para termos importantes nas instruções */
 .catch-game .catch-instructions strong {
     color: var(--cg-highlight-color);
 }
 
-/* ── Caixa de Resultado ────────────────────────────────────────── */
+/* ── Caixa de exibição do resultado final (Modal interno) ──────────────── */
 .catch-game .catch-result-box {
     background: var(--cg-result-bg);
     border: 1px solid var(--cg-border);
@@ -61,7 +71,7 @@
     margin-top: 16px;
 }
 
-/* ── Responsividade ────────────────────────────────────────────── */
+/* ── Responsividade para dispositivos móveis ───────────────────────────── */
 @media (max-width: 720px) {
     .catch-game .catch-stage {
         height: 420px;

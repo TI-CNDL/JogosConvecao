@@ -3,8 +3,13 @@ import { shuffle } from "../../utils/array";
 import { normalizeText } from "../../utils/string";
 import { calcularPontos } from "../../utils/scoring";
 
+// Limite máximo de dicas/letras reveladas permitidas por palavra (padrão: 3)
 const MAX_HINTS_PER_WORD = 3;
 
+/**
+ * Estrutura de dados de fallback (padrão) utilizada caso a API REST não retorne rodadas cadastradas.
+ * Contém um conjunto de letras para a colmeia e três palavras-alvo com suas respectivas dicas explicativas.
+ */
 const DEFAULT_ROUND_DATA = {
     exemplos: [
         {
@@ -29,8 +34,19 @@ const DEFAULT_ROUND_DATA = {
 
 // ─── Funções utilitárias internas ────────────────────────────────
 
+/**
+ * Normaliza e ordena alfabeticamente as letras de uma palavra para facilitar comparações de anagramas.
+ */
 const sortLetters = (word) => normalizeText(word).split("").sort().join("");
 
+/**
+ * Constrói o conjunto de 7 letras exclusivas para a colmeia hexagonal.
+ * Remove duplicatas e, caso a palavra forneça menos de 7 letras distintas,
+ * preenche o restante com caracteres aleatórios do alfabeto.
+ *
+ * @param {string[]} letters - Array inicial de letras extraídas da palavra-alvo.
+ * @returns {string[]} Array contendo exatamente 7 letras distintas embaralhadas.
+ */
 const buildHoneycomb = (letters) => {
     const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -56,12 +72,20 @@ const buildHoneycomb = (letters) => {
  * Aceita tanto { letras, alvos } (formato antigo) quanto
  * { word, hint } (formato do backend Sequelize).
  */
+/**
+ * Normaliza os dados brutos (raw) de uma rodada da API REST para o formato interno padronizado.
+ * Suporta tanto a estrutura legada `{ letras, alvos }` (com múltiplos alvos por colmeia) quanto a
+ * estrutura do Sequelize `{ word, hint }` (gerando a colmeia dinamicamente a partir da palavra).
+ *
+ * @param {Object} rawRound - Objeto representando os dados brutos da rodada.
+ * @returns {Array} Lista de alvos normalizados, cada um contendo `{ letters, target }`.
+ */
 const normalizeRound = (rawRound) => {
     if (!rawRound) return [];
 
     const normalizedTargets = [];
 
-    // Formato { letras, alvos } (exemplos inline)
+    // Formato { letras, alvos } (exemplos inline / legado)
     if (rawRound?.letras || rawRound?.alvos) {
         const letters = buildHoneycomb(
             (rawRound?.letras ?? []).map(normalizeText),
@@ -81,7 +105,7 @@ const normalizeRound = (rawRound) => {
         return normalizedTargets;
     }
 
-    // Formato { word, hint } (vindo do SoletraRound do Sequelize)
+    // Formato { word, hint } (vindo do modelo SoletraRound do Sequelize)
     if (rawRound?.word) {
         const word = normalizeText(rawRound.word);
         normalizedTargets.push({
@@ -96,6 +120,14 @@ const normalizeRound = (rawRound) => {
     return normalizedTargets;
 };
 
+/**
+ * Constrói a fila de unidades (palavras-alvo) para a sessão de jogo atual.
+ * Aplica o limite configurado de palavras (`wordLimit`) e embaralha a lista para garantir variedade.
+ *
+ * @param {Object} roundData - Objeto contendo os dados da rodada vindos da API.
+ * @param {number} wordLimit - Quantidade máxima de palavras permitidas para a partida.
+ * @returns {Array} Fila final embaralhada de unidades de jogo.
+ */
 const buildUnitQueue = (roundData, wordLimit) => {
     const fallbackData = roundData && (roundData.exemplos || roundData.letras || roundData.word)
         ? roundData
@@ -113,8 +145,19 @@ const buildUnitQueue = (roundData, wordLimit) => {
     return shuffle(allUnits).slice(0, safeLimit);
 };
 
+/**
+ * Inicializa o array de contagem de dicas (nível 0) para cada palavra da rodada.
+ */
 const buildHintLevels = (count) => Array.from({ length: count }, () => 0);
 
+/**
+ * Constrói a representação mascarada de uma palavra com base no seu nível atual de dica.
+ * Revela as primeiras `hintLevel` letras e substitui o restante por underlines (`_`).
+ *
+ * @param {string} word - Palavra-alvo completa.
+ * @param {number} hintLevel - Quantidade de letras a serem reveladas.
+ * @returns {string} String formatada com a máscara (ex: "LO_____").
+ */
 const buildMaskedWord = (word, hintLevel) => {
     const revealed = Math.min(Math.max(hintLevel, 0), MAX_HINTS_PER_WORD);
     const prefix = word.slice(0, revealed);
@@ -122,6 +165,14 @@ const buildMaskedWord = (word, hintLevel) => {
     return `${prefix}${suffix}`;
 };
 
+/**
+ * Compara a palavra digitada pelo usuário contra o alvo atual e retorna um array de classes de cor
+ * (estilo Wordle/Termo) indicando o status de cada letra: `correct` (posição exata), `exists` (posição incorreta) ou `wrong`.
+ *
+ * @param {string} userWord - Palavra fornecida pelo jogador.
+ * @param {string} targetWord - Palavra-alvo correta.
+ * @returns {string[]} Array contendo as classes CSS correspondentes para cada caractere.
+ */
 const getLetterColors = (userWord, targetWord) => {
     const normalized = normalizeText(userWord);
     const colors = [];
@@ -165,17 +216,18 @@ export default function useSoletraGameLogic({
     const { roundData = DEFAULT_ROUND_DATA } = data;
     const { timeLimitSeconds = 30, wordLimit = 3 } = settings;
 
-    // ─── Estado da sequência ─────────────────────────────────────────
+    // ─── ESTADO DA SEQUÊNCIA DE PALAVRAS ─────────────────────────────
     const [sessionUnits, setSessionUnits] = useState(() =>
         buildUnitQueue(roundData, wordLimit),
     );
-    const [currentUnitIndex, setCurrentUnitIndex] = useState(0);
-    const [completedUnits, setCompletedUnits] = useState(0);
+    const [currentUnitIndex, setCurrentUnitIndex] = useState(0); // Índice do alvo ativo atual
+    const [completedUnits, setCompletedUnits] = useState(0);     // Contagem de palavras adivinhadas
 
     const activeUnit = sessionUnits[currentUnitIndex] ?? null;
     const letterPool = activeUnit?.letters ?? buildHoneycomb([]);
     const targets = activeUnit ? [activeUnit.target] : [];
 
+    // Mapeia cada palavra da sessão para o seu respectivo índice para validação em tempo O(1)
     const targetByWord = useMemo(
         () => new Map(sessionUnits.map((unit, idx) => [unit.target.palavra, idx])),
         [sessionUnits],
@@ -293,7 +345,11 @@ export default function useSoletraGameLogic({
         timedOut,
     ]);
 
-    // ─── Ações ───────────────────────────────────────────────────────
+    // ─── AÇÕES DE MANIPULAÇÃO DE ENTRADA ─────────────────────────────
+    
+    /**
+     * Adiciona uma letra selecionada na colmeia à string digitada atual.
+     */
     const pushLetter = useCallback(
         (letter) => {
             if (finished) return;
@@ -304,6 +360,9 @@ export default function useSoletraGameLogic({
         [finished],
     );
 
+    /**
+     * Remove o último caractere da string digitada atual (Backspace).
+     */
     const backspace = useCallback(() => {
         if (finished) return;
         setTyped((prev) => prev.slice(0, -1));
@@ -311,12 +370,17 @@ export default function useSoletraGameLogic({
         setLastAttemptColors(null);
     }, [finished]);
 
+    /**
+     * Solicita uma dica para a palavra especificada, incrementando seu nível de revelação.
+     * Impede o uso de dicas caso a palavra já esteja resolvida, o limite de dicas tenha sido atingido
+     * ou a palavra anterior ainda não tenha sido solucionada.
+     */
     const useHint = useCallback(
         (index) => {
             if (finished) return;
             if (foundIndexes.has(index)) return;
             if (hintLevels[index] >= MAX_HINTS_PER_WORD) return;
-            if (index > 0 && !foundIndexes.has(index - 1)) return;
+            if (index > 0 && !foundIndexes.has(index - 1)) return; // Exige ordem sequencial de resolução
 
             setHintLevels((prev) => {
                 const next = [...prev];
@@ -327,6 +391,12 @@ export default function useSoletraGameLogic({
         [finished, foundIndexes, hintLevels],
     );
 
+    /**
+     * VALIDAÇÃO DE PALAVRA (confirmWord)
+     * Verifica se a string digitada corresponde à palavra-alvo ativa. Realiza validações de preenchimento,
+     * checagem de caracteres permitidos (apenas da colmeia), verifica se a palavra já foi encontrada
+     * ou se pertence a um alvo futuro. Fornece feedback visual e textual em cada cenário.
+     */
     const confirmWord = useCallback(() => {
         if (finished) return;
         const word = normalizeText(typed);
@@ -335,6 +405,7 @@ export default function useSoletraGameLogic({
             return;
         }
 
+        // Verifica se todas as letras utilizadas estão presentes na colmeia atual
         const isAllowedChars = word
             .split("")
             .every((letter) => letterPool.includes(letter));
@@ -352,6 +423,7 @@ export default function useSoletraGameLogic({
         }
 
         const matchedIndex = targetByWord.get(word);
+        // A palavra existe no banco de dados da rodada
         if (matchedIndex !== undefined) {
             if (foundIndexes.has(matchedIndex)) {
                 setFeedback("Essa palavra ja foi encontrada.");
@@ -359,6 +431,7 @@ export default function useSoletraGameLogic({
                 return;
             }
 
+            // A palavra adivinhada pertence a um índice futuro (bloqueado)
             if (matchedIndex !== currentTargetIndex) {
                 setFeedback("Resolva a palavra atual antes da proxima.");
                 setLastAttemptColors(
@@ -367,12 +440,14 @@ export default function useSoletraGameLogic({
                 return;
             }
 
+            // Sucesso na resolução do alvo atual
             setFeedback("Acertou!");
             setFoundIndexes((prev) => new Set([...prev, matchedIndex]));
 
             const nextUnitIndex = currentUnitIndex + 1;
             const hasNextUnit = nextUnitIndex < sessionUnits.length;
 
+            // Avança para o próximo alvo ou encerra a partida com vitória
             if (hasNextUnit) {
                 advanceToNextUnit();
             } else {
@@ -381,9 +456,11 @@ export default function useSoletraGameLogic({
             return;
         }
 
+        // Palavra incorreta: gera as cores de feedback (Wordle/Termo)
         const colors = getLetterColors(word, currentTarget.palavra);
         setLastAttemptColors(colors);
 
+        // Verifica se é um anagrama (mesmas letras, ordem errada)
         const wrongOrder =
             sortLetters(currentTarget.palavra) === sortLetters(word);
         if (wrongOrder) {

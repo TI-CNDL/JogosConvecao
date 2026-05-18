@@ -1,15 +1,24 @@
+/* ==========================================================================
+   ESTILOS DO HUB ADMINISTRATIVO (adminHubV2.style.css)
+   Define o layout flexível do painel CRUD, cartões de resumo estatístico,
+   tabelas responsivas, modais de formulário e botões de ação em lote.
+   ========================================================================== */
+
+/* ── Estrutura principal do painel ─────────────────────────────────────── */
 .admin-hub {
     display: flex;
     flex-direction: column;
     gap: 16px;
 }
 
+/* Garante que o cabeçalho, seções e barra de ações ocupem 100% da largura */
 .admin-hero,
 .admin-actions,
 .admin-section {
     width: 100%;
 }
 
+/* ── Cartões de resumo estatístico (Hero) ──────────────────────────────── */
 .admin-summary {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -39,12 +48,14 @@
     font-size: 22px;
 }
 
+/* ── Contêiner das seções de tabelas ───────────────────────────────────── */
 .admin-sections {
     display: flex;
     flex-direction: column;
     gap: 16px;
 }
 
+/* Ações no cabeçalho de cada seção (contagem de itens e botões) */
 .admin-section-actions {
     display: flex;
     align-items: center;
@@ -52,6 +63,7 @@
     flex-wrap: wrap;
 }
 
+/* ── Filtros e barra de busca ──────────────────────────────────────────── */
 .admin-filters {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -76,6 +88,7 @@
     letter-spacing: 0.08em;
 }
 
+/* Estilização unificada de inputs, selects e textareas do painel e modais */
 .admin-filter input,
 .admin-filter select,
 .time-field input,
@@ -96,6 +109,7 @@
     resize: vertical;
 }
 
+/* ── Barra de seleção em lote (Ações em massa) ─────────────────────────── */
 .admin-selection-bar {
     display: flex;
     align-items: center;
@@ -134,6 +148,7 @@
     font-weight: 700;
 }
 
+/* ── Tabelas de dados CRUD ─────────────────────────────────────────────── */
 .admin-table-wrap {
     overflow-x: auto;
     border-radius: 14px;
@@ -176,11 +191,13 @@
     background: rgba(56, 189, 248, 0.05);
 }
 
+/* Destaque visual para linhas selecionadas via checkbox */
 .admin-table tbody tr.is-selected {
     background: rgba(56, 189, 248, 0.14);
     box-shadow: inset 6px 0 0 #38bdf8;
 }
 
+/* Alinhamento de colunas de seleção e ações */
 .admin-select-head,
 .admin-select-cell {
     width: 88px;
@@ -195,9 +212,9 @@
 
 .admin-actions-cell {
     min-width: 240px;
-
 }
 
+/* ── Estilização customizada de Checkbox ───────────────────────────────── */
 .admin-checkbox-wrap {
     position: relative;
     display: inline-flex;
@@ -292,6 +309,7 @@
     color: #f8fafc;
 }
 
+/* ── Botões de ação e modais ───────────────────────────────────────────── */
 .admin-form-actions {
     display: flex;
     gap: 10px;
@@ -307,9 +325,6 @@
     gap: 10px;
     flex-wrap: wrap;
     justify-content: flex-end;
-}
-
-.admin-row-actions {
     width: 100%;
     white-space: nowrap;
 }
@@ -324,6 +339,7 @@
     margin-top: 8px;
 }
 
+/* ── Modal de Formulário (Backdrop e painel interno) ───────────────────── */
 .admin-modal-backdrop {
     position: fixed;
     inset: 0;
@@ -349,7 +365,7 @@
     gap: 12px;
 }
 
-/* ── Palavras agrupadas por jogo ─────────────────────────────── */
+/* ── Agrupamento de palavras por jogo ──────────────────────────────────── */
 .admin-words-group {
     margin-top: 18px;
 }
@@ -381,6 +397,7 @@
     letter-spacing: 0.05em;
 }
 
+/* ── Responsividade ────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
     .admin-table {
         min-width: 760px;

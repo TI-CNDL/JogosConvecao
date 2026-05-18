@@ -1,9 +1,11 @@
-/* 
- * CSS do componente Caça-palavras
- * Usa variáveis CSS para permitir theming dinâmico
- * Variáveis com fallbacks para cores padrão
- */
+/* ==========================================================================
+   ESTILOS DO JOGO CAÇA-PALAVRAS (wordSearchGame.style.css)
+   Define as variáveis de tema, estilização da grade de letras (CSS Grid flexível),
+   aparência das células nos estados normal, selecionado (arraste em andamento)
+   e encontrado (sucesso), além da formatação dos chips de palavras-alvo.
+   ========================================================================== */
 
+/* ── Variáveis Locais de Escopo do Componente ──────────────────────────── */
 .wordsearch-game {
     --ws-bg-grid: var(--card-bg, #0b1220);
     --ws-border-default: var(--card-border, #1f2937);
@@ -23,6 +25,7 @@
     flex-direction: column;
 }
 
+/* ── Contêiner da Grade de Letras ──────────────────────────────────────── */
 .wordsearch-game .ws-grid {
     display: grid;
     gap: 6px;
@@ -33,44 +36,51 @@
     width: 100%;
 }
 
+/* Linha da grade configurada dinamicamente via variável CSS (--ws-cols) */
 .wordsearch-game .ws-row {
     display: grid;
     grid-template-columns: repeat(var(--ws-cols, 10), minmax(0, 1fr));
     gap: 6px;
 }
 
+/* ── Estilização da Célula Individual (Letra) ──────────────────────────── */
 .wordsearch-game .ws-cell {
     background: var(--ws-bg-cell);
     color: var(--ws-text-default);
     border: 1px solid var(--ws-border-default);
+    /* Utiliza clamp para escalar perfeitamente a altura e fonte em qualquer tamanho de tela */
     min-height: clamp(54px, 6vw, 64px);
     font-size: clamp(16px, 2vw, 18px);
     font-weight: 700;
     border-radius: 10px;
-    aspect-ratio: 1 / 1;
+    aspect-ratio: 1 / 1; /* Garante que a célula seja sempre um quadrado perfeito */
     transition: transform 100ms ease, border-color 120ms ease;
     cursor: pointer;
 }
 
+/* Estado visual durante o arraste de seleção (destaque ciano e leve ampliação) */
 .wordsearch-game .ws-cell.selected {
     border-color: var(--ws-accent-primary);
     transform: scale(1.05);
 }
 
+/* Estado visual permanente para células que pertencem a palavras encontradas (verde) */
 .wordsearch-game .ws-cell.found {
     background: var(--ws-bg-found);
     border-color: var(--ws-border-found);
 }
 
+/* ── Contêiner e Chips da Lista de Palavras-Alvo ───────────────────────── */
 .wordsearch-game .ws-words {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
 }
 
+/* Chip individual representando uma palavra a ser encontrada */
 .wordsearch-game .ws-word-chip {
     padding: 10px 14px;
-    border-radius: 999px;
+    border-radius: 999px; /* Formato de pílula arredondada */
     background: var(--ws-bg-chip);
     border: 1px solid var(--ws-border-chip);
     color: var(--ws-text-default);
@@ -78,12 +88,14 @@
     transition: opacity 200ms ease;
 }
 
+/* Destaque visual para palavras já encontradas (fundo verde escuro e opacidade reduzida) */
 .wordsearch-game .ws-word-chip.done {
     background: var(--ws-bg-chip-done);
     border-color: var(--ws-border-chip-done);
     opacity: 0.7;
 }
 
+/* ── Caixa de Resultado Final e Avisos ─────────────────────────────────── */
 .wordsearch-game .ws-result-box {
     background: var(--ws-result-bg);
     border: 1px solid var(--ws-border-default);
@@ -95,6 +107,7 @@
     margin-top: 16px;
 }
 
+/* ── Responsividade para Telas Menores (Mobile) ────────────────────────── */
 @media (max-width: 720px) {
     .wordsearch-game .ws-cell {
         min-width: 48px;

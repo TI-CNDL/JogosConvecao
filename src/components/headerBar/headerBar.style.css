@@ -1,3 +1,10 @@
+/* ==========================================================================
+   ESTILOS DA BARRA SUPERIOR (headerBar.style.css)
+   Define o layout flexível do cabeçalho da aplicação (topbar), alinhamento
+   dos botões de navegação e comportamento responsivo para telas menores.
+   ========================================================================== */
+
+/* ── Estrutura principal da Barra Superior ──────────────────────────────── */
 .topbar {
     display: flex;
     align-items: center;
@@ -8,21 +15,24 @@
     border: 1px solid #1f2937;
     border-radius: 16px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-    pointer-events: auto;
+    pointer-events: auto; /* Garante que os cliques sejam capturados na barra superior */
     position: relative;
-    z-index: 100;
+    z-index: 100;         /* Mantém a barra superior acima de todos os jogos e painéis */
 }
 
+/* Espaçamento do título principal */
 .topbar h1 {
     margin: 4px 0 0;
 }
 
+/* Botões com estilo fantasma (ghost) na barra superior */
 .topbar .ghost {
     min-width: 160px;
     pointer-events: auto;
     cursor: pointer;
 }
 
+/* ── Agrupamento de ações e botões ─────────────────────────────────────── */
 .topbar-actions {
     display: flex;
     gap: 10px;
@@ -30,6 +40,7 @@
     justify-content: flex-end;
 }
 
+/* ── Responsividade para dispositivos móveis ───────────────────────────── */
 @media (max-width: 720px) {
     .topbar {
         flex-direction: column;

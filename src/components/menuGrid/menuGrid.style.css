@@ -1,10 +1,19 @@
+/* ==========================================================================
+   ESTILOS DA GRADE DO MENU (menuGrid.style.css)
+   Define o layout em grade responsiva para os cartões (tiles) dos minijogos,
+   estilização dos formulários de configuração e botões de ação.
+   ========================================================================== */
+
+/* ── Estrutura principal da grade de cartões ───────────────────────────── */
 .menu-grid {
     display: grid;
+    /* Cria colunas responsivas com largura mínima de 320px */
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 16px;
     align-items: stretch;
 }
 
+/* ── Estilização individual dos cartões (Tiles) ────────────────────────── */
 .tile {
     background: rgba(15, 23, 42, 0.8);
     border: 1px solid #1f2937;
@@ -19,6 +28,7 @@
     min-height: 360px;
 }
 
+/* ── Campos de configuração (Inputs e Selects) ─────────────────────────── */
 .time-field {
     display: flex;
     flex-direction: column;
@@ -26,6 +36,7 @@
     color: #cbd5e1;
 }
 
+/* Estilo unificado para campos de entrada de número */
 .time-field input {
     background: #0b1220;
     color: #e2e8f0;
@@ -36,6 +47,7 @@
     font-size: 16px;
 }
 
+/* Estilo unificado para caixas de seleção (Selects) */
 .time-field select {
     background: #0b1220;
     color: #e2e8f0;
@@ -44,26 +56,30 @@
     padding: 12px;
     min-height: 54px;
     font-size: 16px;
-    appearance: none;
+    appearance: none; /* Remove a seta nativa do sistema operacional para um visual limpo */
     width: 100%;
 }
 
+/* Destaque de foco acessível para navegação por teclado */
 .time-field select:focus-visible,
 .time-field input:focus-visible {
     outline: 2px solid #334155;
     outline-offset: 1px;
 }
 
+/* ── Títulos e botões dos cartões ──────────────────────────────────────── */
 .tile h3 {
     margin: 0;
     font-size: 18px;
 }
 
+/* Posiciona o botão principal sempre na parte inferior do cartão */
 .tile .primary {
     width: 100%;
     margin-top: auto;
 }
 
+/* ── Responsividade para dispositivos móveis ───────────────────────────── */
 @media (max-width: 640px) {
     .tile h3 {
         font-size: 16px;
