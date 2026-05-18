@@ -17,12 +17,14 @@ import "./soletraGame.style.css";
  */
 export default function SoletraGame({
   data = {},
+  config = {},
   settings = {},
   ranking = [],
   onScore,
   onRoundComplete,
   onGameOver,
 }) {
+  const activeSettings = { ...config, ...settings };
   // Desestrutura o Custom Hook que gerencia todo o estado, validação e regras de negócio do Soletra
   const {
     MAX_HINTS_PER_WORD, // Limite máximo de dicas/letras reveladas por palavra (padrão: 3)
@@ -49,7 +51,7 @@ export default function SoletraGame({
     currentUnitIndex,   // Índice da palavra ativa que o jogador deve adivinhar no momento
   } = useSoletraGameLogic({
     data,
-    settings,
+    settings: activeSettings,
     onScore,
     onRoundComplete,
     onGameOver,

@@ -66,14 +66,7 @@ export default function LabirintoGame({
     posKey,                    // Função auxiliar para gerar a chave de posição 'r-c'
   } = logic;
 
-  // Efeito de depuração (Debug) para monitorar no console as dimensões e alinhamento do grid
-  // sempre que o tamanho da célula (cellSize) for recalculado.
-  useEffect(() => {
-    if (boardRef.current) {
-      const style = window.getComputedStyle(boardRef.current);
-      console.debug(`[Labirinto V3] Grid Rendered: width=${style.width}, height=${style.height}, padding=${style.padding}, border=${style.borderWidth}`);
-    }
-  }, [cellSize]);
+  // Debug de renderização do grid removido conforme solicitação do usuário
 
   return (
     // Contêiner principal do painel do jogo.

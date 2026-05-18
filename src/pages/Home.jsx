@@ -1,12 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { CardMenu } from "../components/cardMenu/CardMenu";
 import { Titulo } from "../components/titulo/Titulo";
-import { getAdminRecords } from "../lib/appDatabase";
+import {
+  getAdminRecords,
+  loadAppDatabase,
+  getGameContent,
+} from "../lib/appDatabase";
 
-export function Home({ onStartGame }) {
+export function Home({ onSelectGame, onOpenAdmin }) {
   const [games, setGames] = useState([]);
   const [gameSettings, setGameSettings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isRemoteMode, setIsRemoteMode] = useState(false);
 
   // Estado dos inputs
   const [timeLimits, setTimeLimits] = useState({});
@@ -31,6 +36,20 @@ export function Home({ onStartGame }) {
   });
   const [soletraWordLimits, setSoletraWordLimits] = useState({});
 
+  // Hidratação inicial: verifica se o backend está disponível
+  useEffect(() => {
+    const hydrateApp = async () => {
+      try {
+        const { isRemote } = await loadAppDatabase();
+        setIsRemoteMode(isRemote);
+      } catch (err) {
+        setIsRemoteMode(false);
+      }
+    };
+    hydrateApp();
+  }, []);
+
+  // Carregamento de jogos e configurações
   useEffect(() => {
     let active = true;
 
@@ -96,7 +115,10 @@ export function Home({ onStartGame }) {
         catchInitialFallTimes[game.id] ??
         10,
       pairCount: selectedConfig.pairCount ?? pairsLimits[game.id] ?? 6,
-      gridSize: selectedConfig.gridSize ?? gridSizes[game.id] ?? 12,
+      gridSize:
+        selectedConfig.gridSize ??
+        gridSizes[game.id] ??
+        (game.code === "labirinto" ? 8 : game.code === "wordsearch" ? 10 : 12),
       maxWords: selectedConfig.maxWords ?? wordSearchWordLimits[game.id] ?? 5,
       wordLimit: selectedConfig.wordLimit ?? wordSearchWordLimits[game.id] ?? 5,
       maxAttempts: selectedConfig.maxAttempts ?? selectedConfig.maxLives ?? 5,
@@ -117,11 +139,48 @@ export function Home({ onStartGame }) {
         3,
     };
 
-    onStartGame?.({
+    onSelectGame?.({
       code: game.code,
       title: game.name ?? game.code,
       config,
     });
+  };
+
+  // Callbacks para atualizar estados dos inputs
+  const handleTimeLimitChange = (gameId, value) => {
+    setTimeLimits((prev) => ({ ...prev, [gameId]: value }));
+  };
+
+  const handleCatchInitialFallTimeChange = (gameId, value) => {
+    setCatchInitialFallTimes((prev) => ({ ...prev, [gameId]: value }));
+  };
+
+  const handleWordSearchWordLimitChange = (gameId, value) => {
+    setWordSearchWordLimits((prev) => ({ ...prev, [gameId]: value }));
+  };
+
+  const handleHangmanWordLengthChange = (gameId, value) => {
+    setHangmanWordLengths((prev) => ({ ...prev, [gameId]: value }));
+  };
+
+  const handleLabirintoWordLengthChange = (gameId, value) => {
+    setLabirintoWordLengths((prev) => ({ ...prev, [gameId]: value }));
+  };
+
+  const handlePairsChange = (gameId, value) => {
+    setPairsLimits((prev) => ({ ...prev, [gameId]: value }));
+  };
+
+  const handleGridSizeChange = (gameId, value) => {
+    setGridSizes((prev) => ({ ...prev, [gameId]: value }));
+  };
+
+  const handleQuizLimitChange = (gameId, value) => {
+    setQuizQuestionLimits((prev) => ({ ...prev, [gameId]: value }));
+  };
+
+  const handleSoletraWordLimitChange = (gameId, value) => {
+    setSoletraWordLimits((prev) => ({ ...prev, [gameId]: value }));
   };
 
   return (
@@ -151,6 +210,7 @@ export function Home({ onStartGame }) {
               return (
                 <CardMenu
                   key={game.id}
+                  gameId={game.id}
                   title={game.name ?? game.code}
                   code={game.code}
                   settings={settingsForGame}
@@ -158,6 +218,29 @@ export function Home({ onStartGame }) {
                     timeLimitSeconds: 30,
                   }}
                   onStartGame={handleStartGame}
+                  timeLimits={timeLimits}
+                  onTimeLimitChange={handleTimeLimitChange}
+                  catchInitialFallTimes={catchInitialFallTimes}
+                  onCatchInitialFallTimeChange={
+                    handleCatchInitialFallTimeChange
+                  }
+                  wordSearchWordLimits={wordSearchWordLimits}
+                  onWordSearchWordLimitChange={handleWordSearchWordLimitChange}
+                  wordSearchWordBounds={wordSearchWordBounds}
+                  hangmanWordLengths={hangmanWordLengths}
+                  onHangmanWordLengthChange={handleHangmanWordLengthChange}
+                  labirintoWordLengths={labirintoWordLengths}
+                  onLabirintoWordLengthChange={handleLabirintoWordLengthChange}
+                  pairsLimits={pairsLimits}
+                  onPairsChange={handlePairsChange}
+                  gridSizes={gridSizes}
+                  onGridSizeChange={handleGridSizeChange}
+                  quizQuestionBounds={quizQuestionBounds}
+                  quizQuestionLimits={quizQuestionLimits}
+                  onQuizLimitChange={handleQuizLimitChange}
+                  soletraWordBounds={soletraWordBounds}
+                  soletraWordLimits={soletraWordLimits}
+                  onSoletraWordLimitChange={handleSoletraWordLimitChange}
                 />
               );
             })}
@@ -169,10 +252,7 @@ export function Home({ onStartGame }) {
                 Veja usuários, palavras, frases, perguntas, respostas e demais
                 registros.
               </p>
-              <button
-                className="primary"
-                onClick={() => onStartGame?.({ code: "admin", title: "Admin" })}
-              >
+              <button className="primary" onClick={() => onOpenAdmin?.()}>
                 Abrir hub de dados
               </button>
             </article>

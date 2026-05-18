@@ -36,3 +36,5 @@ export function HeaderJogo({
     </>
   );
 }
+
+export default HeaderJogo;

@@ -129,11 +129,13 @@ const normalizeRound = (rawRound) => {
  * @returns {Array} Fila final embaralhada de unidades de jogo.
  */
 const buildUnitQueue = (roundData, wordLimit) => {
-    const fallbackData = roundData && (roundData.exemplos || roundData.letras || roundData.word)
-        ? roundData
-        : DEFAULT_ROUND_DATA;
+    const dbRounds = Array.isArray(roundData?.rounds) ? roundData.rounds : [];
+    const examples = dbRounds.length > 0
+        ? dbRounds
+        : Array.isArray(roundData?.exemplos)
+            ? roundData.exemplos
+            : DEFAULT_ROUND_DATA.exemplos;
 
-    const examples = Array.isArray(fallbackData?.exemplos) ? fallbackData.exemplos : [];
     const allUnits = examples.flatMap((example) => normalizeRound(example));
 
     if (allUnits.length === 0) return [];
@@ -214,7 +216,8 @@ export default function useSoletraGameLogic({
     onGameOver,
 }) {
     const { roundData = DEFAULT_ROUND_DATA } = data;
-    const { timeLimitSeconds = 30, wordLimit = 3 } = settings;
+    const timeLimitSeconds = settings.timeLimitSeconds ?? 30;
+    const wordLimit = settings.soletraWordLimit ?? settings.wordLimit ?? 3;
 
     // ─── ESTADO DA SEQUÊNCIA DE PALAVRAS ─────────────────────────────
     const [sessionUnits, setSessionUnits] = useState(() =>

@@ -18,11 +18,13 @@ import "./hangmanGame.style.css";
 export default function HangmanGame({
     data = {},
     config = {},
+    settings = {},
     ranking = [],
     onScore,
     onRoundComplete,
     onGameOver,
 }) {
+    const activeConfig = { ...config, ...settings };
     // Inicializa o Custom Hook desestruturando todas as variáveis de estado, métricas e ações da Forca
     const {
         alphabet,      // Lista de letras disponíveis no teclado virtual (A-Z + Ç)
@@ -38,7 +40,7 @@ export default function HangmanGame({
         currentPoints, // Pontuação atual calculada com base nas letras reveladas
         pickLetter,    // Função disparada ao clicar em uma letra do teclado virtual
         resetGame,     // Função disparada ao clicar no botão de novo jogo
-    } = useHangmanGameLogic({ data, config, onScore, onRoundComplete, onGameOver });
+    } = useHangmanGameLogic({ data, config: activeConfig, onScore, onRoundComplete, onGameOver });
 
     return (
         // Contêiner principal do painel do jogo da forca

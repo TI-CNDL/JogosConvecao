@@ -27,12 +27,10 @@ export default function useWordSearchLogic({
 }) {
     // Desestrutura os dados e configurações com valores de fallback padrão
     const { words = [] } = data;
-    const {
-        timeLimitSeconds = 120,
-        gridSize = null,
-        maxAttempts = 50,
-        maxWords = null,
-    } = settings;
+    const timeLimitSeconds = settings.timeLimitSeconds ?? 120;
+    const gridSize = settings.gridSize ?? null;
+    const maxAttempts = settings.maxAttempts ?? 50;
+    const maxWords = settings.maxWords ?? settings.wordLimit ?? null;
 
     // ─── PROCESSAMENTO E NORMALIZAÇÃO DE PALAVRAS ────────────────────
     // Remove acentos (diacríticos), caracteres especiais e converte tudo para maiúsculas

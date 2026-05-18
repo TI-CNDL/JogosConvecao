@@ -247,6 +247,54 @@ const generateLetterPath = (word, gridSize) => {
 };
 
 /**
+ * Fallback determinístico para posicionar letras quando a heurística aleatória falha.
+ * Tenta colocar as letras em linha (horizontal ou vertical) respeitando um espaçamento mínimo.
+ * @param {string} word
+ * @param {number} gridSize
+ * @returns {Array|null}
+ */
+const deterministicPlacement = (word, gridSize) => {
+    const len = word.length;
+    const baseGap = Math.max(1, MIN_GAP_STEPS);
+
+    // Tenta horizontalmente em todas as linhas
+    for (let gap = baseGap; gap >= 1; gap -= 1) {
+        for (let r = 0; r < gridSize; r += 1) {
+            for (let startC = 0; startC < gridSize; startC += 1) {
+                const cps = [];
+                let c = startC;
+                let ok = true;
+                for (let i = 0; i < len; i += 1) {
+                    if (c >= gridSize) { ok = false; break; }
+                    cps.push({ r, c });
+                    c += gap;
+                }
+                if (ok && cps.length === len) return cps;
+            }
+        }
+    }
+
+    // Tenta verticalmente em todas as colunas
+    for (let gap = baseGap; gap >= 1; gap -= 1) {
+        for (let c = 0; c < gridSize; c += 1) {
+            for (let startR = 0; startR < gridSize; startR += 1) {
+                const cps = [];
+                let r = startR;
+                let ok = true;
+                for (let i = 0; i < len; i += 1) {
+                    if (r >= gridSize) { ok = false; break; }
+                    cps.push({ r, c });
+                    r += gap;
+                }
+                if (ok && cps.length === len) return cps;
+            }
+        }
+    }
+
+    return null;
+};
+
+/**
  * Constrói um caminho livre de obstáculos (solução) entre dois checkpoints usando Busca em Largura (BFS).
  * Evita passar por células proibidas ou outros checkpoints fora de ordem.
  * @param {Object} start — Coordenada inicial.
@@ -268,7 +316,7 @@ const buildPathBetween = (
     const startK = posKey(start.r, start.c);
     const targetK = posKey(target.r, target.c);
 
-    if (startK === targetK) return [start, target];
+    if (startK === targetK) return [start];
 
     const queue = [copyPos(start)];
     const seen = new Set([startK]);
@@ -286,7 +334,7 @@ const buildPathBetween = (
         // Se alcançou o destino, faz o caminho de volta (backtracking) para montar a rota
         if (currentK === targetK) {
             const path = [copyPos(target)];
-            let walk = currentK;
+            let walk = prev.get(currentK);
             let pathWalkIterations = 0;
 
             while (walk !== startK && pathWalkIterations < MAX_ITERATIONS) {
@@ -296,15 +344,12 @@ const buildPathBetween = (
                 walk = prev.get(walk);
 
                 if (!walk) {
-                    path.push(copyPos(start));
                     break;
                 }
             }
 
-            if (walk === startK || path[path.length - 1].r === start.r && path[path.length - 1].c === start.c) {
-                return path.reverse();
-            }
-            return null;
+            path.push(copyPos(start));
+            return path.reverse();
         }
 
         // Explora os vizinhos nas 4 direções
@@ -345,7 +390,7 @@ const buildBlockedEdges = (checkpoints, gridSize) => {
 
     // 1. Conecta cada par de checkpoints consecutivos para formar a solução garantida
     for (let i = 0; i < checkpoints.length - 1; i += 1) {
-        const between = buildPathBetween(
+        let between = buildPathBetween(
             checkpoints[i],
             checkpoints[i + 1],
             blocked,
@@ -353,9 +398,28 @@ const buildBlockedEdges = (checkpoints, gridSize) => {
             checkpointCells,
             gridSize,
         );
-        if (!between || between.length < 2) {
-            console.warn(`[buildBlockedEdges] ✗ Falha ao conectar checkpoint ${i} → ${i + 1}`);
-            return null;
+        if (!between || between.length < 1) {
+            console.warn(`[buildBlockedEdges] ✗ Falha ao conectar checkpoint ${i} → ${i + 1} (primeira tentativa)`);
+
+            // Tentativa de fallback: permitir reutilizar células de caminhos anteriores
+            // (relaxa `forbiddenCells` para aumentar a chance de encontrar uma rota).
+            console.warn(`[buildBlockedEdges] Tentando fallback relaxado para conectar checkpoint ${i} → ${i + 1}`);
+            const relaxed = buildPathBetween(
+                checkpoints[i],
+                checkpoints[i + 1],
+                blocked,
+                new Set(), // proibimos nada — permite reutilizar células
+                checkpointCells,
+                gridSize,
+            );
+
+            if (!relaxed || relaxed.length < 1) {
+                console.warn(`[buildBlockedEdges] ✗ Fallback também falhou para checkpoint ${i} → ${i + 1}`);
+                return null;
+            }
+
+            // Use o caminho relaxado se teve sucesso
+            between = relaxed;
         }
         solutionPaths.push(between);
         between.forEach((pos) => forbiddenCells.add(posKey(pos.r, pos.c)));
@@ -368,7 +432,7 @@ const buildBlockedEdges = (checkpoints, gridSize) => {
     for (let r = 0; r < gridSize; r += 1) {
         for (let c = 0; c < gridSize; c += 1) {
             const wallProb = getWallProbability(gridSize);
-            
+
             // Checa aresta horizontal (direita)
             if (c + 1 < gridSize) {
                 const a = { r, c };
@@ -477,12 +541,20 @@ const generateRound = (words, gridSize, depth = 0) => {
     const eligibleWords = words.filter((word) => word.length <= gridSize);
     const pool = eligibleWords.length > 0 ? eligibleWords : words;
     const word = pool[Math.floor(Math.random() * pool.length)];
-    
+
     // Tenta gerar os checkpoints para a palavra escolhida
-    const checkpoints = generateLetterPath(word, gridSize);
+    let checkpoints = generateLetterPath(word, gridSize);
     if (!checkpoints) {
         console.debug(`[LabirintoLogic] Falha em generateLetterPath depth=${depth}`);
-        return generateRound(words, gridSize, depth + 1);
+
+        // Tenta fallback determinístico antes de recursar
+        const det = deterministicPlacement(word, gridSize);
+        if (det) {
+            console.debug(`[LabirintoLogic] Usando fallback determinístico para palavra "${word}"`);
+            checkpoints = det;
+        } else {
+            return generateRound(words, gridSize, depth + 1);
+        }
     }
 
     const checkpointMap = new Map();
@@ -546,13 +618,7 @@ const debugRoundFailure = ({ source, words, gridSize }) => {
         .filter((n) => n > 0);
     const uniqueLengths = Array.from(new Set(lengths)).sort((a, b) => a - b);
 
-    console.warn("[Labirinto][DEBUG] Falha ao montar round", {
-        source,
-        gridSize,
-        wordsCount: safeWords.length,
-        availableWordLengths: uniqueLengths,
-        sampleWords: safeWords.slice(0, 8),
-    });
+    // Debug silenciado conforme solicitação do usuário
 };
 
 /**
@@ -611,7 +677,9 @@ export default function useLabirintoLogic({
     onGameOver,
 }) {
     const { words = [] } = data;
-    const { timeLimitSeconds = 120, gridSize = DEFAULT_GRID_SIZE } = config;
+    const rawGridSize = config.gridSize ?? DEFAULT_GRID_SIZE;
+    const gridSize = rawGridSize <= 8 ? 8 : 10; // Clamp de segurança: apenas 8 ou 10
+    const { timeLimitSeconds = 120 } = config;
 
     // Estado do round atual contendo o grid, palavra e posições
     const [round, setRound] = useState(() => {
@@ -697,6 +765,8 @@ export default function useLabirintoLogic({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [timeLimitSeconds]);
 
+    const wordsKey = useMemo(() => JSON.stringify(words), [words]);
+
     // Atualiza o round caso a lista de palavras ou o tamanho do grid mudem
     useEffect(() => {
         if (words && words.length > 0) {
@@ -719,7 +789,7 @@ export default function useLabirintoLogic({
         setReported(false);
         setHintText("");
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [words, boardGridSize]);
+    }, [wordsKey, boardGridSize]);
 
     // Cronômetro regressivo (Timer de 1 em 1 segundo)
     useEffect(() => {

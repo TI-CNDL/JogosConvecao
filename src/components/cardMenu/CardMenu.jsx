@@ -144,10 +144,32 @@ const getNumberAttributes = (key) => {
 export function CardMenu({
   title,
   code,
+  gameId,
   settings = [],
   onStartGame,
   interactive = true,
   defaultConfig = {},
+  timeLimits,
+  catchInitialFallTimes,
+  wordSearchWordLimits,
+  wordSearchWordBounds,
+  hangmanWordLengths,
+  labirintoWordLengths,
+  pairsLimits,
+  gridSizes,
+  quizQuestionBounds,
+  quizQuestionLimits,
+  soletraWordBounds,
+  soletraWordLimits,
+  onTimeLimitChange,
+  onCatchInitialFallTimeChange,
+  onWordSearchWordLimitChange,
+  onHangmanWordLengthChange,
+  onLabirintoWordLengthChange,
+  onPairsChange,
+  onGridSizeChange,
+  onQuizLimitChange,
+  onSoletraWordLimitChange,
 }) {
   const hasSettings = settings.length > 0;
 
@@ -215,82 +237,286 @@ export function CardMenu({
   };
 
   const handleStart = () => {
-    onStartGame?.({ code, title, config: defaultConfig });
+    const currentConfig = { ...defaultConfig };
+
+    if (timeLimits?.[gameId] !== undefined) currentConfig.timeLimitSeconds = timeLimits[gameId];
+    if (catchInitialFallTimes?.[gameId] !== undefined) currentConfig.initialFallTimeSeconds = catchInitialFallTimes[gameId];
+    if (pairsLimits?.[gameId] !== undefined) currentConfig.pairCount = pairsLimits[gameId];
+    
+    if (gridSizes?.[gameId] !== undefined) {
+      currentConfig.gridSize = gridSizes[gameId];
+    } else {
+      if (code === "labirinto") currentConfig.gridSize = 8;
+      else if (code === "wordsearch") currentConfig.gridSize = 10;
+      else if (code === "whac") currentConfig.gridSize = 12;
+      else currentConfig.gridSize = 12;
+    }
+
+    if (wordSearchWordLimits?.[gameId] !== undefined) currentConfig.wordLimit = wordSearchWordLimits[gameId];
+    if (hangmanWordLengths?.[gameId] !== undefined) currentConfig.hangmanWordLength = hangmanWordLengths[gameId];
+    if (labirintoWordLengths?.[gameId] !== undefined) currentConfig.labirintoWordLength = labirintoWordLengths[gameId];
+    if (quizQuestionLimits?.[gameId] !== undefined) currentConfig.questionLimit = quizQuestionLimits[gameId];
+    if (soletraWordLimits?.[gameId] !== undefined) currentConfig.soletraWordLimit = soletraWordLimits[gameId];
+
+    onStartGame?.({ code, title, config: currentConfig });
   };
 
   return (
     <section className="CardMenu">
       <Titulo texto={title} background={false} classe="TituloCard" />
 
-      {hasSettings ? (
-        <form className="formCardMenu" onSubmit={handleSubmit}>
-          {editableSettings.map((setting) => {
-            const fieldId = `${code}-${setting.key}`;
-            const defaultValue = formatFieldValue(
-              defaultConfig[setting.key] ?? setting.value,
-            );
-
-            // If the setting defines preset select options, render a select
-            if (
-              Array.isArray(setting.selectOptions) &&
-              setting.selectOptions.length > 0
-            ) {
-              return (
-                <section className="formCardMenuSection" key={setting.key}>
-                  <label htmlFor={fieldId} className="labelCardMenu">
-                    {setting.label}
-                  </label>
-                  <select
-                    id={fieldId}
-                    name={setting.key}
-                    defaultValue={
-                      setting.type === "checkbox" ? undefined : defaultValue
-                    }
-                    className="inputCardMenu"
-                  >
-                    {setting.selectOptions.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                </section>
-              );
+      <form className="formCardMenu" onSubmit={handleSubmit}>
+        {/* CONFIGURAÇÃO GLOBAL DE TEMPO MÁXIMO */}
+        <section className="formCardMenuSection">
+          <label htmlFor={`${code}-timeLimit`} className="labelCardMenu">
+            Tempo máximo (s)
+          </label>
+          <input
+            type="number"
+            className="inputCardMenu"
+            id={`${code}-timeLimit`}
+            min={30}
+            max={600}
+            step={10}
+            value={timeLimits?.[gameId] ?? 30}
+            onChange={(e) =>
+              onTimeLimitChange?.(gameId, Number(e.target.value))
             }
-
-            return (
-              <section className="formCardMenuSection" key={setting.key}>
-                <label htmlFor={fieldId} className="labelCardMenu">
-                  {setting.label}
-                </label>
-                <input
-                  type={setting.type}
-                  className="inputCardMenu"
-                  id={fieldId}
-                  name={setting.key}
-                  defaultValue={
-                    setting.type === "checkbox" ? undefined : defaultValue
-                  }
-                  defaultChecked={
-                    setting.type === "checkbox"
-                      ? Boolean(defaultConfig[setting.key] ?? setting.value)
-                      : undefined
-                  }
-                  {...(setting.type === "number"
-                    ? setting.numberAttributes
-                    : {})}
-                />
-              </section>
-            );
-          })}
-          <Button
-            classe="buttonComeceAJogar"
-            type="submit"
-            classeTexto="textoComeceAJogar"
-            texto="Começar a jogar"
           />
-        </form>
-      ) : (
+        </section>
+
+        {/* CONFIGURAÇÕES ESPECÍFICAS: CESTA DE OFERTAS (catch) */}
+        {code === "catch" && (
+          <section className="formCardMenuSection">
+            <label htmlFor={`${code}-fallTime`} className="labelCardMenu">
+              Tempo inicial da queda (s)
+            </label>
+            <input
+              type="number"
+              className="inputCardMenu"
+              id={`${code}-fallTime`}
+              min={3}
+              max={30}
+              step={1}
+              value={catchInitialFallTimes?.[gameId] ?? 10}
+              onChange={(e) =>
+                onCatchInitialFallTimeChange?.(gameId, Number(e.target.value))
+              }
+            />
+          </section>
+        )}
+
+        {/* CONFIGURAÇÕES ESPECÍFICAS: JOGO DA MEMÓRIA (memory) */}
+        {code === "memory" && (
+          <section className="formCardMenuSection">
+            <label htmlFor={`${code}-pairs`} className="labelCardMenu">
+              Pares de cartas
+            </label>
+            <select
+              id={`${code}-pairs`}
+              className="inputCardMenu"
+              value={pairsLimits?.[gameId] ?? 6}
+              onChange={(e) => onPairsChange?.(gameId, Number(e.target.value))}
+            >
+              {[4, 6, 8, 10, 12].map((val) => (
+                <option key={val} value={val}>
+                  {val} pares
+                </option>
+              ))}
+            </select>
+          </section>
+        )}
+
+        {/* CONFIGURAÇÕES ESPECÍFICAS: ACERTE O ALVO (whac) */}
+        {code === "whac" && (
+          <section className="formCardMenuSection">
+            <label htmlFor={`${code}-gridSize`} className="labelCardMenu">
+              Tamanho da grade
+            </label>
+            <select
+              id={`${code}-gridSize`}
+              className="inputCardMenu"
+              value={gridSizes?.[gameId] ?? 12}
+              onChange={(e) =>
+                onGridSizeChange?.(gameId, Number(e.target.value))
+              }
+            >
+              {[12, 16, 20, 25].map((val) => (
+                <option key={val} value={val}>
+                  {val} slots
+                </option>
+              ))}
+            </select>
+          </section>
+        )}
+
+        {/* CONFIGURAÇÕES ESPECÍFICAS: CAÇA-PALAVRAS (wordsearch) */}
+        {code === "wordsearch" && (
+          <>
+            <section className="formCardMenuSection">
+              <label htmlFor={`${code}-gridSize`} className="labelCardMenu">
+                Tamanho da grade
+              </label>
+              <select
+                id={`${code}-gridSize`}
+                className="inputCardMenu"
+                value={gridSizes?.[gameId] ?? 10}
+                onChange={(e) =>
+                  onGridSizeChange?.(gameId, Number(e.target.value))
+                }
+              >
+                {[5, 8, 10, 12].map((val) => (
+                  <option key={val} value={val}>
+                    {val} x {val}
+                  </option>
+                ))}
+              </select>
+            </section>
+            <section className="formCardMenuSection">
+              <label htmlFor={`${code}-wordLimit`} className="labelCardMenu">
+                Qtd. de palavras
+              </label>
+              <input
+                type="number"
+                className="inputCardMenu"
+                id={`${code}-wordLimit`}
+                min={wordSearchWordBounds?.min ?? 1}
+                max={wordSearchWordBounds?.max ?? 1}
+                step={1}
+                value={
+                  wordSearchWordLimits?.[gameId] ??
+                  Math.min(5, wordSearchWordBounds?.max ?? 5)
+                }
+                onChange={(e) =>
+                  onWordSearchWordLimitChange?.(gameId, Number(e.target.value))
+                }
+                disabled={(wordSearchWordBounds?.max ?? 0) < 1}
+              />
+            </section>
+          </>
+        )}
+
+        {/* CONFIGURAÇÕES ESPECÍFICAS: LABIRINTO (labirinto) */}
+        {code === "labirinto" && (
+          <>
+            <section className="formCardMenuSection">
+              <label
+                htmlFor={`${code}-labirintoSize`}
+                className="labelCardMenu"
+              >
+                Tamanho do labirinto
+              </label>
+              <select
+                id={`${code}-labirintoSize`}
+                className="inputCardMenu"
+                value={gridSizes?.[gameId] ?? 8}
+                onChange={(e) =>
+                  onGridSizeChange?.(gameId, Number(e.target.value))
+                }
+              >
+                {[8, 10].map((val) => (
+                  <option key={val} value={val}>
+                    {val} x {val}
+                  </option>
+                ))}
+              </select>
+            </section>
+            <section className="formCardMenuSection">
+              <label htmlFor={`${code}-wordLength`} className="labelCardMenu">
+                Qtd. de letras
+              </label>
+              <input
+                type="number"
+                className="inputCardMenu"
+                id={`${code}-wordLength`}
+                min={3}
+                max={12}
+                step={1}
+                value={labirintoWordLengths?.[gameId] ?? 5}
+                onChange={(e) =>
+                  onLabirintoWordLengthChange?.(gameId, Number(e.target.value))
+                }
+              />
+            </section>
+          </>
+        )}
+
+        {/* CONFIGURAÇÕES ESPECÍFICAS: QUIZ (quiz) */}
+        {code === "quiz" && (
+          <section className="formCardMenuSection">
+            <label htmlFor={`${code}-questionLimit`} className="labelCardMenu">
+              Qtd. de perguntas
+            </label>
+            <input
+              type="number"
+              className="inputCardMenu"
+              id={`${code}-questionLimit`}
+              min={quizQuestionBounds?.min ?? 0}
+              max={quizQuestionBounds?.max ?? 0}
+              step={1}
+              value={
+                quizQuestionLimits?.[gameId] ??
+                Math.min(5, quizQuestionBounds?.max ?? 5)
+              }
+              onChange={(e) =>
+                onQuizLimitChange?.(gameId, Number(e.target.value))
+              }
+              disabled={(quizQuestionBounds?.max ?? 0) < 1}
+            />
+          </section>
+        )}
+
+        {/* CONFIGURAÇÕES ESPECÍFICAS: SOLETRA (soletra) */}
+        {code === "soletra" && (
+          <section className="formCardMenuSection">
+            <label
+              htmlFor={`${code}-soletraWordLimit`}
+              className="labelCardMenu"
+            >
+              Qtd. de palavras
+            </label>
+            <input
+              type="number"
+              className="inputCardMenu"
+              id={`${code}-soletraWordLimit`}
+              min={soletraWordBounds?.min ?? 0}
+              max={soletraWordBounds?.max ?? 0}
+              step={1}
+              value={
+                soletraWordLimits?.[gameId] ??
+                Math.min(3, soletraWordBounds?.max ?? 3)
+              }
+              onChange={(e) =>
+                onSoletraWordLimitChange?.(gameId, Number(e.target.value))
+              }
+              disabled={(soletraWordBounds?.max ?? 0) < 1}
+            />
+          </section>
+        )}
+
+        {/* CONFIGURAÇÕES ESPECÍFICAS: FORCA (hangman) */}
+        {code === "hangman" && (
+          <section className="formCardMenuSection">
+            <label htmlFor={`${code}-hangmanLength`} className="labelCardMenu">
+              Qtd. de letras
+            </label>
+            <input
+              type="number"
+              className="inputCardMenu"
+              id={`${code}-hangmanLength`}
+              min={3}
+              max={12}
+              step={1}
+              value={hangmanWordLengths?.[gameId] ?? 5}
+              onChange={(e) =>
+                onHangmanWordLengthChange?.(gameId, Number(e.target.value))
+              }
+            />
+          </section>
+        )}
+
+        {/* CAMPOS GENÉRICOS REMOVIDOS: Mantém apenas as configurações nativas do código */}
+
         <Button
           classe="buttonComeceAJogar"
           type="button"
@@ -299,7 +525,7 @@ export function CardMenu({
           disabled={!interactive}
           onClick={handleStart}
         />
-      )}
+      </form>
     </section>
   );
 }

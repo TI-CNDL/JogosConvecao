@@ -14,12 +14,14 @@ import "./quizGame.style.css";
  */
 export default function QuizGame({
     data = {},
+    config = {},
     settings = {},
     ranking = [],
     onScore,
     onRoundComplete,
     onGameOver,
 }) {
+    const activeSettings = { ...config, ...settings };
     const {
         step,
         currentQuestion,
@@ -32,7 +34,7 @@ export default function QuizGame({
         currentPoints,
         chooseAnswer,
         resetGame,
-    } = useQuizGameLogic({ data, settings, onScore, onRoundComplete, onGameOver });
+    } = useQuizGameLogic({ data, settings: activeSettings, onScore, onRoundComplete, onGameOver });
 
     return (
         <div className="quiz-game panel">

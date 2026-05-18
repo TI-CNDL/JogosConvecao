@@ -321,9 +321,20 @@ app.get('/api/gameContent/:gameCode', async (req, res) => {
     const game = await Game.findOne({ where: { code: gameCode } });
     if (!game) return res.status(404).json({ error: 'game not found' });
 
-    const words = await GameWord.findAll({ where: { gameId: game.id } });
-    const quiz = await QuizQuestion.findAll({ where: { gameId: game.id } });
-    const rounds = await SoletraRound.findAll({ where: { gameId: game.id } });
+    let words = await GameWord.findAll({ where: { gameId: game.id } });
+    if (!words || words.length === 0) {
+        words = await GameWord.findAll();
+    }
+
+    let quiz = await QuizQuestion.findAll({ where: { gameId: game.id } });
+    if (!quiz || quiz.length === 0) {
+        quiz = await QuizQuestion.findAll();
+    }
+
+    let rounds = await SoletraRound.findAll({ where: { gameId: game.id } });
+    if (!rounds || rounds.length === 0) {
+        rounds = await SoletraRound.findAll();
+    }
 
     res.json({ game: { id: game.id, code: game.code, name: game.name }, words, quiz, rounds });
 });

@@ -19,16 +19,18 @@ import "./wordSearchGame.style.css";
  */
 export default function WordSearchGame({
     data = {},
+    config = {},
     settings = {},
     ranking = [],
     onScore,
     onRoundComplete,
     onGameOver,
 }) {
+    const activeSettings = { ...config, ...settings };
     // Consome o Custom Hook que gerencia a geração da grade, validação de arraste, temporizadores e pontuação
     const logic = useWordSearchLogic({
         data,
-        settings,
+        settings: activeSettings,
         onScore,
         onRoundComplete,
         onGameOver,

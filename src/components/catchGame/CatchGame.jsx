@@ -17,12 +17,14 @@ import "./catchGame.style.css";
  */
 export default function CatchGame({
     data = {},
+    config = {},
     settings = {},
     ranking = [],
     onScore,
     onRoundComplete,
     onGameOver,
 }) {
+    const activeSettings = { ...config, ...settings };
     // Inicializa o Custom Hook desestruturando as referências do DOM, estado do HUD e manipuladores de eventos
     const {
         canvasRef,         // Referência para o elemento <canvas> onde os itens e a cesta são desenhados
@@ -33,7 +35,7 @@ export default function CatchGame({
         timedOut,          // Flag indicando se o fim de jogo foi causado pelo término do tempo
         handlePointerMove, // Função disparada ao mover o mouse ou tocar na tela para mover a cesta
         restartGame,       // Função para reiniciar a partida
-    } = useCatchGameLogic({ data, settings, onScore, onGameOver });
+    } = useCatchGameLogic({ data, settings: activeSettings, onScore, onGameOver });
 
     // Determina se a tela final de resultado deve ser exibida
     const showResult = finished && timeLeft <= 0;

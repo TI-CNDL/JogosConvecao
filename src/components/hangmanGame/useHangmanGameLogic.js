@@ -28,21 +28,24 @@ export default function useHangmanGameLogic({
     onGameOver,
 }) {
     const { words = [] } = data;
-    const {
-        timeLimitSeconds = 30,
-        maxLives = DEFAULT_MAX_LIVES,
-    } = config;
+    const timeLimitSeconds = config.timeLimitSeconds ?? 30;
+    const maxLives = config.maxLives ?? config.maxAttempts ?? DEFAULT_MAX_LIVES;
+    const hangmanWordLength = config.hangmanWordLength ?? null;
 
     // ─── DADOS DERIVADOS E FILTRAGEM ─────────────────────────────────────────────
     
-    // Normaliza a lista de palavras garantindo que estejam em letras maiúsculas e sem strings vazias
-    const normalizedWords = useMemo(
-        () =>
-            words
-                .map((word) => (word ?? "").toUpperCase())
-                .filter((word) => word.length > 0),
-        [words],
-    );
+    // Normaliza a lista de palavras garantindo que estejam em maiúsculas, sem strings vazias e aplicando o filtro de tamanho
+    const normalizedWords = useMemo(() => {
+        const norm = words
+            .map((word) => (word ?? "").toUpperCase())
+            .filter((word) => word.length > 0);
+            
+        if (hangmanWordLength) {
+            const filtered = norm.filter((w) => w.length === hangmanWordLength);
+            return filtered.length > 0 ? filtered : norm;
+        }
+        return norm;
+    }, [words, hangmanWordLength]);
 
     // Flag indicando se a lista de palavras está completamente vazia
     const noWords = normalizedWords.length === 0;
