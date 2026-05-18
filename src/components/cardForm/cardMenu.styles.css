@@ -1,0 +1,67 @@
+.CardFormSection {
+    display: flex;
+    padding: 4.3125rem 2.6875rem 7.625rem 2.625rem;
+    margin: 13.75rem 0;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 2.5625rem;
+    border-radius: 2.5rem;
+    border: 1px solid var(--Color-5, #F60085);
+    background: rgba(2, 18, 41, 0.50);
+    box-shadow: 0 0 13.9px 0 rgba(0, 0, 0, 0.72);
+}
+
+.formSection {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.9375rem;
+    align-self: stretch;
+}
+
+.inputCardForm {
+    padding: 1.875rem 1.5625rem;
+    box-sizing: border-box;
+    align-self: stretch;
+    border-radius: 1.25rem;
+    border: 1px solid #FFF7F1;
+    background-color: transparent;
+    color: #FFF;
+    font-size: 1.875rem;
+    font-style: normal;
+    font-weight: 300;
+    line-height: 119%;
+    /* 2.23125rem */
+    letter-spacing: -0.02063rem;
+    text-align: start;
+}
+
+.inputCardForm::placeholder {
+    color: #FFF;
+    font-size: 1.875rem;
+    font-style: normal;
+    font-weight: 300;
+    letter-spacing: -0.02063rem;
+}
+
+.tituloJogo {
+    color: #FFF;
+    text-align: center;
+    font-size: 4.0625rem;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 108%;
+    /* 4.3875rem */
+    letter-spacing: -0.04469rem;
+}
+
+.subtituloJogo {
+    color: #FFF;
+    font-size: 1.875rem;
+    font-style: normal;
+    font-weight: 300;
+    line-height: 119%;
+    /* 2.23125rem */
+    letter-spacing: -0.02063rem;
+}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import MemoryGame from "./components/memoryGame/MemoryGame.jsx";
+import { Titulo } from "./components/titulo/Titulo.jsx";
+import MemoryGame from "./components/JogodaMemoria/MemoryGame.jsx";
 import QuizGame from "./components/quizGame/QuizGame.jsx";
 import HangmanGame from "./components/hangmanGame/HangmanGame.jsx";
 import WordSearchGame from "./components/wordSearchGame/WordSearchGame.jsx";
@@ -8,10 +9,11 @@ import SoletraGame from "./components/soletraGame/SoletraGame.jsx";
 import CatchGame from "./components/catchGame/CatchGame.jsx";
 import WhacGame from "./components/whacGame/WhacGame.jsx";
 import AdminHub from "./components/adminHub/AdminHubV2.jsx";
-import PlayerForm from "./components/playerForm/PlayerForm.jsx";
-import MenuGrid from "./components/menuGrid/MenuGrid.jsx";
-import RankingTable from "./components/rankingTable/RankingTable.jsx";
+import Home from "./pages/Home.jsx";
+import Jogos from "./pages/Jogos.jsx";
+import Ranking from "./pages/Ranking.jsx";
 import HeaderBar from "./components/headerBar/HeaderBar.jsx";
+import Cadastro from "./pages/Cadastro.jsx";
 import {
   getSeedDatabase,
   loadAppDatabase,
@@ -26,6 +28,9 @@ import {
 /**
  * Lista estática de minijogos disponíveis no sistema.
  * Contém o identificador único, título exibido e descrição curta para o MenuGrid.
+ *
+ * Observação de separação: este bloco é apenas dados estáticos e é 100% seguro
+ * movê-lo para um arquivo separado (ex: `src/data/games.js`) sem afetar a lógica.
  */
 const games = [
   { id: "memory", title: "Jogo da memória", description: "Ache os pares." },
@@ -41,6 +46,8 @@ const games = [
 /**
  * Estrutura padrão inicial de dados para os jogos (palavras, perguntas, rounds).
  * Serve como fallback caso o banco de dados inicial esteja vazio.
+ *
+ * Observação de separação: também pode ser extraído para `src/lib/defaults.js`.
  */
 const defaultGameData = {
   memorySymbols: [],
@@ -64,6 +71,10 @@ const defaultLabirintoWordLengths = { labirinto: 5 };
 
 /**
  * Funções utilitárias para normalização e formatação de números de telefone (Padrão DDD + 9 dígitos).
+ *
+ * Observação de separação: são utilitários puros — seguros para mover para
+ * `src/utils/phone.js` e importar onde necessário. Se mover, atualize as
+ * importações no `App` e nas páginas que precisarem formatar/validar telefone.
  */
 const normalizePhone = (value) => (value || "").replace(/\D/g, "");
 const onlyDigits = (value) => (value || "").replace(/\D/g, "").slice(0, 11);
@@ -78,6 +89,9 @@ const formatPhoneDigits = (digits) => {
 
 /**
  * Calcula a pontuação percentual com base nos acertos parciais.
+ *
+ * Observação de separação: utilitário de pontuação — seguro para mover para
+ * `src/utils/scoring.js`.
  */
 const calcularPontos = (parcial, total) => {
   if (!total || total <= 0) return 0;
@@ -88,38 +102,49 @@ const calcularPontos = (parcial, total) => {
  * COMPONENTE ORQUESTRADOR PRINCIPAL DA APLICAÇÃO (App)
  * Gerencia o estado global de navegação (telas), jogador ativo, configurações de cada minijogo,
  * sincronização com a API REST do backend e persistência de sessão no localStorage.
+ *
+ * Sugestão de refatoração / pontos de separação (o que você pediu):
+ * - Pages/Home.jsx  -> conteúdo da tela inicial (menu + opções de configuração)
+ * - Pages/Cadastro.jsx -> tela de identificação/cadastro do jogador (PlayerForm + botões)
+ * - Pages/Jogo.jsx -> responsável por montar e renderizar os jogos (estado de sessão do jogo,
+ *                     escolha de componente e wrapper que passa `onScore`, `onPlayAgain`, etc.)
+ * - Pages/Ranking.jsx -> UI do ranking (tabela e lógica de ordenação/format)
+ *
+ * Para cada separação, indico abaixo os trechos "seguros para mover" e as dependências
+ * necessárias (props ou hooks). IMPORTANTE: aqui não alterei nenhum comportamento,
+ * apenas comentei onde é seguro extrair código.
  */
 export function App() {
   // Inicializa o banco de dados semente (vazio) como base
   const [initialDatabase] = useState(() => getSeedDatabase());
-  
+
   // Estado da tela atual ('menu', 'identify', 'play', 'admin') com persistência no localStorage
   const [screen, setScreen] = useState(() => {
     const saved = localStorage.getItem("app_screen");
     return saved || (initialDatabase.session.screen ?? "menu");
   });
-  
+
   // Identificador do jogo selecionado atualmente
   const [selectedGame, setSelectedGame] = useState(() => {
     const saved = localStorage.getItem("app_selectedGame");
     return saved || (initialDatabase.session.selectedGame ?? null);
   });
-  
+
   // Dados do jogador ativo (Nome e Telefone)
   const [name, setName] = useState(initialDatabase.player.name ?? "");
   const [phone, setPhone] = useState(initialDatabase.player.phone ?? "");
-  
+
   // Dados de conteúdo dos jogos (palavras, perguntas, símbolos)
   const [gameData, setGameData] = useState({
     ...defaultGameData,
     ...(initialDatabase.gameData ?? {}),
   });
-  
+
   // Lista do ranking geral
   const [ranking, setRanking] = useState(initialDatabase.ranking ?? []);
   // Cache de leads/jogadores conhecidos mapeados por telefone
   const [leadsByPhone, setLeadsByPhone] = useState(initialDatabase.leads ?? {});
-  
+
   // Estados de configurações individuais por minijogo (Tempo, Pares, Grid, Limites)
   const [timeLimits, setTimeLimits] = useState({
     ...defaultTimeLimits,
@@ -157,19 +182,19 @@ export function App() {
     ...defaultLabirintoWordLengths,
     ...(initialDatabase.settings.labirintoWordLengths ?? {}),
   });
-  
+
   // Flags de controle de requisição e hidratação
   const [isRemoteMode, setIsRemoteMode] = useState(false);
   const [isSavingScore, setIsSavingScore] = useState(false);
   const [isStartingGame, setIsStartingGame] = useState(false);
   const [isDatabaseHydrated, setIsDatabaseHydrated] = useState(false);
   const [gameSessionKey, setGameSessionKey] = useState(0);
-  
+
   // Referências para capturar e congelar os dados da sessão no momento do início do jogo
   const lastSessionPhoneRef = useRef("");
   const lastSessionNameRef = useRef("");
   const didInitialHydrate = useRef(false);
-  
+
   // Efeito de inicialização: busca as configurações e ranking do servidor ao abrir o app
   useEffect(() => {
     let cancelled = false;
@@ -275,6 +300,9 @@ export function App() {
     };
   }, [gameData.wordSearchWords, gridSizes.wordsearch]);
 
+  // Observação: este cálculo determina quantas palavras do conteúdo cabem
+  // no grid atual. Pode ser movido para um hook `useWordSearchBounds(gameData, gridSize)`.
+
   const quizQuestionBounds = useMemo(() => {
     const questions = Array.isArray(gameData.quizQuestions)
       ? gameData.quizQuestions
@@ -293,6 +321,9 @@ export function App() {
       max: fittingCount,
     };
   }, [gameData.quizQuestions]);
+
+  // Observação: validade de conteúdo para o Quiz. Seguro para extrair para um
+  // hook `useQuizQuestionBounds` ou utilitário de validação de conteúdo.
 
   const soletraWordBounds = useMemo(() => {
     const rounds = Array.isArray(gameData.soletraRoundData?.exemplos)
@@ -317,6 +348,8 @@ export function App() {
       max: fittingCount,
     };
   }, [gameData.soletraRoundData]);
+
+  // Observação: bounds do Soletra — pode virar hook `useSoletraBounds(gameData)`.
 
   useEffect(() => {
     // Garante limites corretos no menu mesmo antes de selecionar o jogo
@@ -370,6 +403,12 @@ export function App() {
     preloadQuizData();
     preloadSoletraData();
   }, [isDatabaseHydrated]);
+
+  // Observação: estes pré-loads apenas garantem que o menu tenha counts corretos
+  // mesmo antes da seleção. Se mover a UI do menu, mantenha estes pré-loads num
+  // hook executado em `App` ou dentro de `Pages/Home.jsx` dependendo de onde você
+  // desejar centralizar a lógica de dados.
+
   // Efeito executado ao selecionar um jogo: busca o conteúdo específico (palavras/perguntas) da API
   useEffect(() => {
     if (!selectedGame || !isDatabaseHydrated) return;
@@ -408,6 +447,11 @@ export function App() {
     loadGameData();
   }, [selectedGame, isDatabaseHydrated]);
 
+  // Observação: `loadGameData` só atualiza `gameData` com o conteúdo do jogo
+  // selecionado. Seguro para mover para dentro de `Pages/Jogo.jsx` ou para um
+  // hook `useGameContent(selectedGame)` — desde que o estado final (`setGameData`)
+  // seja preservado/atualizado da mesma forma.
+
   const normalizedPhone = normalizePhone(phone);
 
   /**
@@ -439,6 +483,10 @@ export function App() {
       active = false;
     };
   }, [normalizedPhone, isRemoteMode]);
+
+  // Observação: Efeito que busca jogador remoto por telefone. Se mover o bloco
+  // de cadastro para `Pages/Cadastro.jsx`, mantenha este efeito lá e passe
+  // `setLeadsByPhone` e `setName` por props ou via contexto.
 
   const knownLead = normalizedPhone ? leadsByPhone[normalizedPhone] : null;
   const isKnownPhone = Boolean(knownLead);
@@ -541,6 +589,10 @@ export function App() {
   );
   const ActiveGame = gameComponents[selectedGame];
   const selectedMeta = games.find((g) => g.id === selectedGame);
+  // Observação: `gameComponents` é a fábrica de componentes de jogo. É recomendável
+  // mover essa fábrica para `Pages/Jogo.jsx` (ou `src/games/index.js`) e expor
+  // um componente `GameRenderer({ gameKey, config, data, onScore, onPlayAgain })`.
+  // Se mover, passe `gameData` e `gameConfig` como props.
   const sortByMetrics = (rows, getPoints) =>
     [...rows].sort((a, b) => {
       const aPoints = Number(getPoints(a) || 0);
@@ -702,6 +754,9 @@ export function App() {
     ],
   );
 
+  // Observação: `gameConfigMemo` consolida configurações por jogo. Pode ficar
+  // em `App` e ser passada para `Pages/Jogo.jsx` como `config`.
+
   useEffect(() => {
     const min = wordSearchWordBounds.min;
     const max = wordSearchWordBounds.max;
@@ -767,6 +822,12 @@ export function App() {
     timedOut = false,
   }) => {
     const gameId = selectedGame;
+    // Observação: este gerenciador centraliza a lógica de pontuação:
+    // 1) cálculo de bônus de tempo;
+    // 2) atualização otimista do ranking local;
+    // 3) tentativa de sincronização com o backend (modo remoto) e fallback.
+    // Pode ser extraído para um hook `useHandleScore({ setRanking, isRemoteMode, saveGameScore })`
+    // desde que as refs congeladas (lastSessionPhoneRef/lastSessionNameRef) sejam passadas.
     // Utiliza o telefone e nome congelados no início da sessão para evitar que edições posteriores no input afitem o placar
     const phoneKey =
       lastSessionPhoneRef.current || formatPhoneDigits(normalizedPhone);
@@ -862,14 +923,24 @@ export function App() {
    * Valida os dados do jogador, registra na API caso seja um novo jogador,
    * congela as referências de nome/telefone para a sessão e avança para a tela de jogo ('play').
    */
-  const startGame = async () => {
-    if (!canPlay || !selectedGame) return;
-    const phoneDigits = normalizePhone(phone);
+  const startGame = async (payload = {}) => {
+    // payload opcional permite iniciar jogo a partir de componentes externos
+    // que forneçam `phone` (digits) e `name` diretamente (ex: CardForm).
+    const providedPhone = payload.phone ?? null;
+    const providedName = payload.name ?? null;
+
+    const phoneDigits = providedPhone
+      ? normalizePhone(providedPhone)
+      : normalizePhone(phone);
     const phoneMasked = formatPhoneDigits(phoneDigits);
+
+    const finalNameCandidate = providedName !== null ? providedName : name;
     const finalName =
-      isKnownPhone && knownLead?.name && name !== knownLead.name
+      isKnownPhone && knownLead?.name && finalNameCandidate !== knownLead.name
         ? knownLead.name
-        : name.trim();
+        : String(finalNameCandidate ?? "").trim();
+
+    if (!canPlay && !providedPhone) return;
 
     if (!isKnownPhone && finalName.length === 0) {
       window.alert("Informe o nome para cadastrar um novo jogador.");
@@ -895,13 +966,17 @@ export function App() {
           phone: phoneMasked,
         },
       }));
-    } else if (knownLead?.name && name !== knownLead.name) {
+    } else if (knownLead?.name && String(finalName) !== knownLead.name) {
       setName(knownLead.name);
     }
 
     // Congela o telefone e nome da sessão atual para garantir consistência no envio do placar
     lastSessionPhoneRef.current = phoneMasked;
     lastSessionNameRef.current = finalName;
+
+    // garante que o estado de telefone e nome reflita os valores usados na sessão
+    setPhone(phoneMasked);
+    setName(finalName);
 
     setScreen("play");
   };
@@ -918,75 +993,39 @@ export function App() {
     }
   };
 
+  // Observação: este handler faz parsing + busca local em `leadsByPhone`.
+  // Se mover a UI de cadastro, exporte essa função ou reimplemente o lookup
+  // usando o mesmo `leadsByPhone` (passado por props) ou um hook `useLeads()`.
+
   return (
     <div className="app-shell">
-      <HeaderBar
-        screen={screen}
-        onBackToCadastro={goCadastro}
-        onBackToMenu={goMainMenu}
-      />
-
       {screen === "menu" && (
-        <>
-          <MenuGrid
-            games={games}
-            timeLimits={timeLimits}
-            catchInitialFallTimes={catchInitialFallTimes}
-            wordSearchWordLimits={wordSearchWordLimits}
-            wordSearchWordBounds={wordSearchWordBounds}
-            hangmanWordLengths={hangmanWordLengths}
-            labirintoWordLengths={labirintoWordLengths}
-            pairsLimits={pairsLimits}
-            gridSizes={gridSizes}
-            quizQuestionBounds={quizQuestionBounds}
-            quizQuestionLimits={quizQuestionLimits}
-            soletraWordBounds={soletraWordBounds}
-            soletraWordLimits={soletraWordLimits}
-            onTimeLimitChange={handleTimeLimitChange}
-            onCatchInitialFallTimeChange={handleCatchInitialFallTimeChange}
-            onWordSearchWordLimitChange={handleWordSearchWordLimitChange}
-            onHangmanWordLengthChange={handleHangmanWordLengthChange}
-            onLabirintoWordLengthChange={handleLabirintoWordLengthChange}
-            onPairsChange={handlePairsChange}
-            onGridSizeChange={handleGridSizeChange}
-            onQuizLimitChange={handleQuizLimitChange}
-            onSoletraWordLimitChange={handleSoletraWordLimitChange}
-            onOpenAdminHub={openAdminHub}
-            onSelect={handleSelectGame}
-          />
-          <RankingTable ranking={mainMenuRanking} />
-        </>
+        <Home
+          onStartGame={(payload) => {
+            // payload: { code, title, config }
+            setSelectedGame(String(payload?.code ?? "memory"));
+            setPhone("");
+            setName("");
+            setScreen("identify");
+          }}
+        />
       )}
 
       {screen === "identify" && (
         <section className="game-area">
           {selectedMeta ? (
-            <div className="panel">
-              <div className="panel-head">
-                <div>
-                  <p className="eyebrow">Jogador</p>
-                  <h2>Digite seus dados para jogar</h2>
-                  <p className="muted">Jogo escolhido: {selectedMeta.title}</p>
-                </div>
-              </div>
-              <PlayerForm
-                name={name}
-                phone={phone}
-                onNameChange={setName}
-                onPhoneChange={handlePhoneChange}
-                canPlay={canPlay}
-                isKnownPhone={isKnownPhone}
-              />
-              <button
-                className="primary"
-                onClick={startGame}
-                disabled={!canPlay || isStartingGame}
-              >
-                {isStartingGame
-                  ? "Registrando..."
-                  : `Começar ${selectedMeta.title}`}
-              </button>
-            </div>
+            <Cadastro
+              selectedGame={selectedMeta}
+              onStartChallenge={(payload) => {
+                // payload expected: { phone: digitsOnly, name }
+                const phoneDigits = String(payload?.phone ?? "");
+                const playerName = String(payload?.name ?? "").trim();
+                // atualiza inputs visuais e inicia o fluxo de startGame usando payload
+                setPhone(formatPhoneDigits(phoneDigits));
+                setName(playerName);
+                startGame({ phone: phoneDigits, name: playerName });
+              }}
+            />
           ) : (
             <p>Selecione um jogo para continuar.</p>
           )}
@@ -994,131 +1033,26 @@ export function App() {
       )}
 
       {screen === "play" && (
-        <section className="game-area" style={{ position: "relative" }}>
-          {isSavingScore && (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                zIndex: 50,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "rgba(11, 18, 32, 0.8)",
-                borderRadius: 12,
-                color: "var(--text-color)",
-              }}
-            >
-              <p style={{ fontWeight: 600, fontSize: "1.2rem" }}>
-                Salvando placar...
-              </p>
-            </div>
-          )}
-          {ActiveGame ? (
-            <div
-              style={{
-                opacity: isSavingScore ? 0.6 : 1,
-                pointerEvents: isSavingScore ? "none" : "auto",
-                transition: "opacity 0.2s",
-              }}
-            >
-              {(() => {
-                const commonProps = {
-                  onScore: handleScore,
-                  onPlayAgain: handlePlayAgain,
-                  ranking: [],
-                };
-                const gameKeyId = `${gameKey}-${gameSessionKey}`;
-
-                if (gameKey === "memory")
-                  return (
-                    <MemoryGame
-                      key={gameKeyId}
-                      {...commonProps}
-                      data={gameDataMemo}
-                      config={gameConfigMemo}
-                    />
-                  );
-                if (gameKey === "quiz")
-                  return (
-                    <QuizGame
-                      key={gameKeyId}
-                      {...commonProps}
-                      data={gameDataMemo}
-                      config={gameConfigMemo}
-                    />
-                  );
-                if (gameKey === "hangman")
-                  return (
-                    <HangmanGame
-                      key={gameKeyId}
-                      {...commonProps}
-                      data={gameDataMemo}
-                      config={gameConfigMemo}
-                    />
-                  );
-                if (gameKey === "wordsearch")
-                  return (
-                    <WordSearchGame
-                      key={gameKeyId}
-                      {...commonProps}
-                      data={gameDataMemo}
-                      config={gameConfigMemo}
-                    />
-                  );
-                if (gameKey === "labirinto")
-                  return (
-                    <LabirintoGame
-                      key={gameKeyId}
-                      {...commonProps}
-                      data={gameDataMemo}
-                      config={gameConfigMemo}
-                    />
-                  );
-                if (gameKey === "soletra")
-                  return (
-                    <SoletraGame
-                      key={gameKeyId}
-                      {...commonProps}
-                      data={gameDataMemo}
-                      config={gameConfigMemo}
-                    />
-                  );
-                if (gameKey === "catch")
-                  return (
-                    <CatchGame
-                      key={gameKeyId}
-                      {...commonProps}
-                      data={gameDataMemo}
-                      config={gameConfigMemo}
-                      initialFallTimeSeconds={
-                        gameConfigMemo.initialFallTimeSeconds
-                      }
-                    />
-                  );
-                if (gameKey === "whac")
-                  return (
-                    <WhacGame
-                      key={gameKeyId}
-                      {...commonProps}
-                      data={gameDataMemo}
-                      config={gameConfigMemo}
-                    />
-                  );
-
-                return <p>Jogo não encontrado.</p>;
-              })()}
-            </div>
-          ) : (
-            <p>Jogo não encontrado.</p>
-          )}
-        </section>
+        <Jogos
+          player={{ name, phone }}
+          selectedGame={selectedMeta}
+          onBackToMenu={goMainMenu}
+          onBackToCadastro={goCadastro}
+        />
       )}
 
       {screen === "admin" && (
         <section className="game-area">
+          {/* Observação: painel de administração — pode ser mantido como
+              `AdminHub` aqui ou extraído para `Pages/Admin.jsx` se desejar
+              manter todas as Pages em uma pasta `Pages/`. */}
           <AdminHub onBackToMenu={goMainMenu} />
+        </section>
+      )}
+
+      {screen === "ranking" && (
+        <section className="game-area">
+          <Ranking />
         </section>
       )}
     </div>
